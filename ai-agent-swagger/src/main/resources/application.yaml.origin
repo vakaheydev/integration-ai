@@ -1,0 +1,26 @@
+secrets:
+  gemini:
+    api-key:
+  polza:
+    api-key:
+
+ai:
+  swagger:
+    model: "google/gemini-2.0-flash-lite-001"
+#    model: "deepseek/deepseek-r1-distill-llama-70b"
+
+server:
+  port: 8080
+
+spring:
+  data:
+    mongodb:
+      username:
+      password:
+      host:
+      port:
+      database:
+      authentication-database:
+  servlet:
+    multipart:
+      enabled: true

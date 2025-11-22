@@ -1,0 +1,49 @@
+services:
+  zipkin:
+    image: openzipkin/zipkin
+    ports:
+      - "9411:9411"
+    depends_on: [otel-collector]
+    networks:
+      - internal
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.111.0
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ${PWD}/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    networks:
+      - internal
+  server:
+    image: chromadb/chroma
+    volumes:
+      - ./chroma_data:/data
+    ports:
+      - "8000:8000"
+    networks:
+      - internal
+    environment:
+      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://otel-collector:4317/
+      - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
+    depends_on:
+      - otel-collector
+      - zipkin
+
+  mongodb:
+    image: mongo:latest
+    container_name: mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password
+    restart: unless-stopped
+
+networks:
+  internal:
+
+volumes:
+  chroma_data:
+  mongodb_data:
+    driver: local
