@@ -55,9 +55,10 @@ public class SwaggerController {
     @PostMapping("/{documentId}/chat")
     public ResponseEntity<Map<String, String>> documentChat(@PathVariable("documentId") String documentId,
                                                             @RequestParam("userId") String userId,
-                                                            @RequestParam("query") String query) {
+                                                            @RequestParam("query") String query,
+                                                            @RequestParam("role") String role) {
         try {
-            String response = swaggerService.chatByDocumentId(documentId, userId, query);
+            String response = swaggerService.chatByDocumentId(documentId, userId, query, role);
             return ResponseEntity.ok(Map.of("response", response));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(404)
