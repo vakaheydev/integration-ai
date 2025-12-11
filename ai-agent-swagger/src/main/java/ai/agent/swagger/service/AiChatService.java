@@ -32,8 +32,6 @@ public class AiChatService {
                 .baseUrl("https://api.polza.ai/api/v1")
                 .apiKey(modelApikey)
                 .modelName(modelName)
-                .logRequests(true)
-                .logResponses(true)
                 .build();
     }
 }

@@ -1,0 +1,128 @@
+prompts:
+  roles:
+    analyst: |
+      SYSTEM: You are the best expert system analyst.
+
+    programmer: |
+      SYSTEM: You are the best expert developer and code architect.
+
+  actions:
+    vector-search:
+      extract-key-words: |
+        <<<USER_QUESTION>>>
+        ${user_prompt}
+        <<<END_USER_QUESTION>>>
+
+        TASK:
+        Rephrase the user's request into a concise set of key nouns (maximum 10).  
+        Each word must be in its base nominative form.  
+        Output MUST contain ONLY the comma-separated keywords (no sentences, no explanations).
+        You MUST answer in the user's language.
+
+        Return ONLY:
+        {"answer": "<keyword1, keyword2, ...>"}
+
+        STRICT OUTPUT RULES:
+        1) The response MUST be a single valid JSON object.
+        2) Do NOT include markdown, code fences, comments, or explanations.
+        3) The value of "keywords" MUST be a single string of comma-separated words.
+        4) The first character MUST be "{" and the last MUST be "}".
+
+      not-found: |
+        <<<USER_QUESTION>>>
+        ${user_prompt}
+        <<<END_USER_QUESTION>>>
+
+        TASK:
+        Inform the user that no matching OpenAPI document was found in the database and ask them to rephrase their request.  
+        Your answer must be extremely short (maximum 2 sentences).
+        You MUST answer in the user's language.
+
+        Return ONLY:
+        {"answer": "<your_short_message>"}
+
+        STRICT OUTPUT RULES:
+        1) The response MUST be a single valid JSON object.
+        2) Do NOT include markdown, code fences, comments, or explanations.
+        3) The first character MUST be "{" and the last MUST be "}".
+    document-chat:
+      upload: |
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        TASK:
+        Analyze the provided OpenAPI document method summary and produce a very short overview (maximum 5 sentences).
+        You MUST answer in the user's language.
+
+        Your overview MUST answer:
+        1) What is this API?
+        2) What can it be used for?
+        
+        Return ONLY:
+        {"answer": "<your_overview_answer>"}
+
+        DO NOT list all available endpoints.
+        Summarize the overall functionality in one sentence.
+
+        STRICT OUTPUT RULES:
+        1) The response MUST be a single valid JSON object.
+        2) Do NOT include markdown, code fences, comments, or explanations.
+        3) The first character MUST be "{" and the last MUST be "}".
+      analyze: |
+        <<<USER_QUESTION>>>
+        ${user_prompt}
+        <<<END_USER_QUESTION>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swagger_summary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swagger_method_summary}
+        <<<END_SWAGGER_METHODS>>>
+
+        TASK:
+        Using ONLY the information above, produce a short analytical answer (maximum 5 sentences).
+        You MUST answer in the user's language.
+
+        If the provided context is sufficient:
+        Return ONLY:
+        {"answer": "<your_short_answer>"}
+
+        If the context is insufficient:
+        Return ONLY:
+        {"need_more_context": true, "required": ["<what exactly is missing>"]}
+
+        STRICT OUTPUT RULES:
+        1) The response MUST be a single valid JSON object.
+        2) Do NOT include markdown, code fences, comments, or explanations.
+        3) The first character MUST be "{" and the last MUST be "}".
+      code: |
+        <<<USER_QUESTION>>>
+        ${user_prompt}
+        <<<END_USER_QUESTION>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swagger_summary}
+        <<<END_SWAGGER_SUMMARY>>>
+        
+        <<<SWAGGER_METHODS>>>
+        ${swagger_method_summary}
+        <<<END_SWAGGER_METHODS>>>
+
+        TASK: Using ONLY the provided context, write production-ready Python code that implements the requested functionality.
+        You MUST answer in the user's language.
+        
+        REQUIREMENTS:
+        - Language: Python 3.11
+        - Style: PEP8, SOLID, modular
+        - Output: only the code wrapped between <<<CODE_START language=python>>> and <<<CODE_END>>>
+        - If missing information: return JSON {"need_more_context": true, "required": [{"type":"path","method":"POST","path":"/payments","reason":"need request body schema"}]}
+        
+        STRICT OUTPUT RULES:
+        1) Return ONLY the code in plain text. Do NOT include any prose, explanation, or markdown fences.
+        2) The response MUST start with: <<<CODE_START language=python>>> and end with: <<<CODE_END>>>.
+        3) If you cannot answer fully from the provided context, return EXACTLY:
+           {"need_more_context": true, "required": ["..."]}
+        4) Follow PEP8; use functions, docstrings and SOLID principles.
