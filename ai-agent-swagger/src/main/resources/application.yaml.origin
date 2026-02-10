@@ -1,11 +1,13 @@
 secrets:
-  gemini:
-    api-key:
   polza:
-    api-key:
+  jwt:
+    private-key:
+    expiration:
+      86400000 # in ms = 1 day
 
 ai:
   swagger:
+#    model: "google/gemini-2.5-flash"
     model: "google/gemini-2.0-flash-lite-001"
 #    model: "deepseek/deepseek-r1-distill-llama-70b"
 
@@ -13,14 +15,16 @@ server:
   port: 8080
 
 spring:
+  config:
+    import: classpath:prompts/swagger_prompts.yaml
   data:
     mongodb:
-      username:
-      password:
-      host:
-      port:
-      database:
-      authentication-database:
+      username: admin
+      password: password
+      host: localhost
+      port: 27017
+      database: integration-ai
+      authentication-database: admin
   servlet:
     multipart:
       enabled: true
