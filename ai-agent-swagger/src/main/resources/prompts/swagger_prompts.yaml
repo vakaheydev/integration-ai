@@ -10,7 +10,7 @@ prompts:
     vector-search:
       extract-key-words: |
         <<<USER_QUESTION>>>
-        ${user_prompt}
+        ${userPrompt}
         <<<END_USER_QUESTION>>>
 
         TASK:
@@ -20,17 +20,15 @@ prompts:
         You MUST answer in the user's language.
 
         Return ONLY:
-        {"answer": "<keyword1, keyword2, ...>"}
+        keyword1, keyword2, keyword3...
 
         STRICT OUTPUT RULES:
-        1) The response MUST be a single valid JSON object.
-        2) Do NOT include markdown, code fences, comments, or explanations.
-        3) The value of "keywords" MUST be a single string of comma-separated words.
-        4) The first character MUST be "{" and the last MUST be "}".
+        1) Do NOT include markdown, code fences, comments, or explanations.
+        2) The answer MUST be a single string of comma-separated words.
 
       not-found: |
         <<<USER_QUESTION>>>
-        ${user_prompt}
+        ${userPrompt}
         <<<END_USER_QUESTION>>>
 
         TASK:
@@ -38,13 +36,8 @@ prompts:
         Your answer must be extremely short (maximum 2 sentences).
         You MUST answer in the user's language.
 
-        Return ONLY:
-        {"answer": "<your_short_message>"}
-
         STRICT OUTPUT RULES:
-        1) The response MUST be a single valid JSON object.
-        2) Do NOT include markdown, code fences, comments, or explanations.
-        3) The first character MUST be "{" and the last MUST be "}".
+        1) Do NOT include markdown, code fences, comments, or explanations.
     document-chat:
       upload: |
         <<<SWAGGER_METHODS>>>
@@ -53,62 +46,48 @@ prompts:
 
         TASK:
         Analyze the provided OpenAPI document method summary and produce a very short overview (maximum 5 sentences).
-        You MUST answer in the user's language.
+        You MUST answer in Russian language.
 
         Your overview MUST answer:
         1) What is this API?
         2) What can it be used for?
         
-        Return ONLY:
-        {"answer": "<your_overview_answer>"}
-
         DO NOT list all available endpoints.
         Summarize the overall functionality in one sentence.
 
         STRICT OUTPUT RULES:
-        1) The response MUST be a single valid JSON object.
-        2) Do NOT include markdown, code fences, comments, or explanations.
-        3) The first character MUST be "{" and the last MUST be "}".
+        1) Do NOT include markdown, code fences, comments, or explanations.
+
       analyze: |
         <<<USER_QUESTION>>>
-        ${user_prompt}
+        ${userPrompt}
         <<<END_USER_QUESTION>>>
 
         <<<SWAGGER_SUMMARY>>>
-        ${swagger_summary}
+        ${swaggerSummary}
         <<<END_SWAGGER_SUMMARY>>>
 
         <<<SWAGGER_METHODS>>>
-        ${swagger_method_summary}
+        ${swaggerMethodSummary}
         <<<END_SWAGGER_METHODS>>>
 
         TASK:
         Using ONLY the information above, produce a short analytical answer (maximum 5 sentences).
         You MUST answer in the user's language.
 
-        If the provided context is sufficient:
-        Return ONLY:
-        {"answer": "<your_short_answer>"}
-
-        If the context is insufficient:
-        Return ONLY:
-        {"need_more_context": true, "required": ["<what exactly is missing>"]}
-
         STRICT OUTPUT RULES:
-        1) The response MUST be a single valid JSON object.
-        2) Do NOT include markdown, code fences, comments, or explanations.
-        3) The first character MUST be "{" and the last MUST be "}".
+        1) Do NOT include markdown, code fences, comments, or explanations.
       code: |
         <<<USER_QUESTION>>>
-        ${user_prompt}
+        ${userPrompt}
         <<<END_USER_QUESTION>>>
 
         <<<SWAGGER_SUMMARY>>>
-        ${swagger_summary}
+        ${swaggerSummary}
         <<<END_SWAGGER_SUMMARY>>>
         
         <<<SWAGGER_METHODS>>>
-        ${swagger_method_summary}
+        ${swaggerMethodSummary}
         <<<END_SWAGGER_METHODS>>>
 
         TASK: Using ONLY the provided context, write production-ready Python code that implements the requested functionality.
@@ -118,11 +97,8 @@ prompts:
         - Language: Python 3.11
         - Style: PEP8, SOLID, modular
         - Output: only the code wrapped between <<<CODE_START language=python>>> and <<<CODE_END>>>
-        - If missing information: return JSON {"need_more_context": true, "required": [{"type":"path","method":"POST","path":"/payments","reason":"need request body schema"}]}
         
         STRICT OUTPUT RULES:
         1) Return ONLY the code in plain text. Do NOT include any prose, explanation, or markdown fences.
         2) The response MUST start with: <<<CODE_START language=python>>> and end with: <<<CODE_END>>>.
-        3) If you cannot answer fully from the provided context, return EXACTLY:
-           {"need_more_context": true, "required": ["..."]}
-        4) Follow PEP8; use functions, docstrings and SOLID principles.
+        3) Follow PEP8; use functions, docstrings and SOLID principles.

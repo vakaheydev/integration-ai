@@ -2,10 +2,10 @@ package ai.agent.swagger.controller;
 
 import ai.agent.swagger.model.SwaggerDocument;
 import ai.agent.swagger.model.SwaggerSearchResult;
+import ai.agent.swagger.security.SecurityUtils;
 import ai.agent.swagger.service.SwaggerService;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,30 +16,28 @@ import java.util.NoSuchElementException;
 import java.util.Optional;
 
 @RestController
-@RequestMapping("/api/admin/swagger")
-public class SwaggerController {
+@RequestMapping("/api/me/swagger")
+public class UserSwaggerController {
     private final SwaggerService swaggerService;
 
-    public SwaggerController(SwaggerService swaggerService) {
+    public UserSwaggerController(SwaggerService swaggerService) {
         this.swaggerService = swaggerService;
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, String>> uploadFile(@RequestPart("file") MultipartFile file,
-                                                          @RequestParam("userId") String userId) throws IOException {
+    public ResponseEntity<Map<String, String>> uploadFile(@RequestPart("file") MultipartFile file) throws IOException {
+        String userId = SecurityUtils.currentUser().getId();
         String swaggerContent = new String(file.getBytes());
         Map<String, String> result = swaggerService.uploadSwagger(swaggerContent, userId);
         return ResponseEntity.ok(result);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{documentId}/chat")
     public ResponseEntity<Map<String, String>> documentChat(@PathVariable("documentId") String documentId,
-                                                            @RequestParam("userId") String userId,
                                                             @RequestParam("query") String query,
                                                             @RequestParam("role") String role) {
         try {
+            String userId = SecurityUtils.currentUser().getId();
             String response = swaggerService.chatByDocumentId(documentId, userId, query, role);
             return ResponseEntity.ok(Map.of("response", response));
         } catch (NoSuchElementException e) {
@@ -48,18 +46,20 @@ public class SwaggerController {
         }
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/search")
     public ResponseEntity<SwaggerSearchResult> query(@RequestParam("query") String query) {
         try {
             SwaggerSearchResult result = swaggerService.search(query);
+            if (result.isPresent() && result.getDocument().getUserId() != null
+                    && !result.getDocument().getUserId().equals(SecurityUtils.currentUser().getId())) {
+                return ResponseEntity.status(403).build();
+            }
             return ResponseEntity.ok(result);
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build();
         }
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/{documentId}")
     public ResponseEntity<SwaggerDocument> getDocument(@PathVariable("documentId") String documentId) {
         Optional<SwaggerDocument> swagger = swaggerService.getSwaggerById(documentId);
@@ -68,24 +68,34 @@ public class SwaggerController {
             return ResponseEntity.notFound().build();
         }
 
+        if (swagger.get().getUserId() != null && !swagger.get().getUserId().equals(SecurityUtils.currentUser().getId())) {
+            return ResponseEntity.status(403).build();
+        }
+
         return ResponseEntity.ok(swagger.get());
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<SwaggerDocument>> getDocumentByUserId(@PathVariable("userId") String userId) {
+    @GetMapping("/documents")
+    public ResponseEntity<List<SwaggerDocument>> getDocumentByUserId() {
+        String userId = SecurityUtils.currentUser().getId();
         List<SwaggerDocument> swaggers = swaggerService.getSwaggersByUserId(userId);
-        if (swaggers.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-
         return ResponseEntity.ok(swaggers);
     }
 
-    @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{documentId}")
     public ResponseEntity<?> deleteDocument(@PathVariable("documentId") String documentId) {
+        Optional<SwaggerDocument> swagger = swaggerService.getSwaggerById(documentId);
+
+        if (swagger.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        if (swagger.get().getUserId() != null && !swagger.get().getUserId().equals(SecurityUtils.currentUser().getId())) {
+            return ResponseEntity.status(403).build();
+        }
+
         swaggerService.deleteDocumentById(documentId);
         return ResponseEntity.noContent().build();
     }
 }
+

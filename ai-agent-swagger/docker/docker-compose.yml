@@ -13,7 +13,7 @@ services:
       - ${PWD}/otel-collector-config.yaml:/etc/otel-collector-config.yaml
     networks:
       - internal
-  server:
+  chromadb:
     image: chromadb/chroma
     volumes:
       - ./chroma_data:/data
