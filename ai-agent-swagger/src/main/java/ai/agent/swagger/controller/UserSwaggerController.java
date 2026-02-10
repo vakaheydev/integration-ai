@@ -1,9 +1,11 @@
 package ai.agent.swagger.controller;
 
+import ai.agent.swagger.model.ChatRequest;
 import ai.agent.swagger.model.SwaggerDocument;
 import ai.agent.swagger.model.SwaggerSearchResult;
 import ai.agent.swagger.security.SecurityUtils;
 import ai.agent.swagger.service.SwaggerService;
+import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -25,20 +27,21 @@ public class UserSwaggerController {
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Map<String, String>> uploadFile(@RequestPart("file") MultipartFile file) throws IOException {
+    public ResponseEntity<Map<String, String>> uploadFile(@RequestPart("file") MultipartFile file,
+                                                          @Valid @RequestPart("name") String name) throws IOException {
         String userId = SecurityUtils.currentUser().getId();
         String swaggerContent = new String(file.getBytes());
-        Map<String, String> result = swaggerService.uploadSwagger(swaggerContent, userId);
+        Map<String, String> result = swaggerService.uploadSwagger(swaggerContent, userId, name);
         return ResponseEntity.ok(result);
     }
 
     @PostMapping("/{documentId}/chat")
     public ResponseEntity<Map<String, String>> documentChat(@PathVariable("documentId") String documentId,
-                                                            @RequestParam("query") String query,
-                                                            @RequestParam("role") String role) {
+                                                            @Valid @RequestBody ChatRequest chatRequest) {
         try {
             String userId = SecurityUtils.currentUser().getId();
-            String response = swaggerService.chatByDocumentId(documentId, userId, query, role);
+            String role = chatRequest.getRole() != null ? chatRequest.getRole() : "analytic";
+            String response = swaggerService.chatByDocumentId(documentId, userId, chatRequest.getQuery(), role);
             return ResponseEntity.ok(Map.of("response", response));
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(404)
@@ -75,7 +78,7 @@ public class UserSwaggerController {
         return ResponseEntity.ok(swagger.get());
     }
 
-    @GetMapping("/documents")
+    @GetMapping()
     public ResponseEntity<List<SwaggerDocument>> getDocumentByUserId() {
         String userId = SecurityUtils.currentUser().getId();
         List<SwaggerDocument> swaggers = swaggerService.getSwaggersByUserId(userId);

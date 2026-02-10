@@ -3,6 +3,7 @@ package ai.agent.swagger.controller;
 import ai.agent.swagger.model.SwaggerDocument;
 import ai.agent.swagger.model.SwaggerSearchResult;
 import ai.agent.swagger.service.SwaggerService;
+import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,9 +28,10 @@ public class SwaggerController {
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> uploadFile(@RequestPart("file") MultipartFile file,
-                                                          @RequestParam("userId") String userId) throws IOException {
+                                                          @RequestParam("userId") String userId,
+                                                          @Valid @RequestPart("request") String name) throws IOException {
         String swaggerContent = new String(file.getBytes());
-        Map<String, String> result = swaggerService.uploadSwagger(swaggerContent, userId);
+        Map<String, String> result = swaggerService.uploadSwagger(swaggerContent, userId, name);
         return ResponseEntity.ok(result);
     }
 

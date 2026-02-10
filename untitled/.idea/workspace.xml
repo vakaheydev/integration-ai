@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="cc035287-dedb-4826-b0ee-71428c2ae7ec" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/.env" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/.env" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.env.example" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/.env.example" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/API_INTEGRATION.md" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/API_INTEGRATION.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CHECKLIST.md" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/CHECKLIST.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/COMPONENTS.md" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/COMPONENTS.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DEPLOYMENT.md" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/DEPLOYMENT.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/PROJECT_SUMMARY.md" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/PROJECT_SUMMARY.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/QUICKSTART.md" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/QUICKSTART.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sample-swagger.json" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/sample-swagger.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/api/documentsApi.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/api/documentsApi.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/ChatMessageItem.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/components/ChatMessageItem.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/DocumentList.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/components/DocumentList.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/components/UploadDocument.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/components/UploadDocument.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/main.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/models/types.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/models/types.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/pages/ChatInterface.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/pages/ChatInterface.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/pages/MainPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/pages/MainPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/vite-env.d.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/src/vite-env.d.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/tsconfig.node.json" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/tsconfig.node.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../react-frontend/vite.config.ts" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="CopilotPersistence">
+    <persistenceIdMap>
+      <entry key="_C:/Users/MaxxPC/Documents/диплом/src/integration-ai/untitled" value="39UNQvYExRGvjkjyfa0kwzneAWB" />
+      <entry key="_C:/Users/MaxxPC/WebstormProjects/untitled" value="39RPTbLUqeY1JOgA81H0qQKTSk2" />
+    </persistenceIdMap>
+  </component>
+  <component name="CopilotUserSelectedModel">
+    <selectedModels>
+      <entry key="chat-panel" value="Claude Sonnet 4.5" />
+      <entry key="agent-panel" value="Claude Sonnet 4.5" />
+    </selectedModels>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 7
+}</component>
+  <component name="ProjectId" id="39RPTbLUqeY1JOgA81H0qQKTSk2" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;Node.js.main.ts.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;com.intellij.ml.llm.matterhorn.ej.ui.settings.DefaultModelSelectionForGA.v1&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;feat/ai-agent-swagger&quot;,
+    &quot;javascript.preferred.runtime.type.id&quot;: &quot;node&quot;,
+    &quot;junie.onboarding.icon.badge.shown&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/MaxxPC/Documents/диплом/src/integration-ai/untitled&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_interpreter_path&quot;: &quot;C:/Users/MaxxPC/AppData/Roaming/JetBrains/WebStorm2025.3/node/versions/24.13.0/node&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;onboarding.tips.debug.path&quot;: &quot;C:/Users/MaxxPC/WebstormProjects/untitled/src/main.ts&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.editor&quot;,
+    &quot;to.speed.mode.migration.done&quot;: &quot;true&quot;,
+    &quot;ts.external.directory.path&quot;: &quot;C:\\Users\\MaxxPC\\WebstormProjects\\untitled\\node_modules\\typescript\\lib&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-WS-253.30387.83" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="cc035287-dedb-4826-b0ee-71428c2ae7ec" name="Changes" comment="" />
+      <created>1770655919237</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1770655919237</updated>
+      <workItem from="1770655920252" duration="1121000" />
+      <workItem from="1770746361642" duration="129000" />
+      <workItem from="1770746674858" duration="18000" />
+      <workItem from="1770746706273" duration="26000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="github-copilot-workspace">
+    <instructionFileLocations>
+      <option value=".github/instructions" />
+    </instructionFileLocations>
+    <promptFileLocations>
+      <option value=".github/prompts" />
+    </promptFileLocations>
+  </component>
+</project>

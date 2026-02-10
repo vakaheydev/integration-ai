@@ -34,7 +34,7 @@ public class UserService {
 
         Set<String> roles = request.getRoles();
         if (roles == null || roles.isEmpty()) {
-            roles = Set.of("user");
+            roles = Set.of("USER");
         }
 
         User user = User.builder()

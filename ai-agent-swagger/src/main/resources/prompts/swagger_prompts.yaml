@@ -72,7 +72,9 @@ prompts:
         <<<END_SWAGGER_METHODS>>>
 
         TASK:
-        Using ONLY the information above, produce a short analytical answer (maximum 5 sentences).
+        Using ONLY the information above, produce a short analytical answer. 
+        You may refer to specific API methods from <<<SWAGGER_METHODS>>> if relevant, including their HTTP method and path.
+        Do not list all methods, only reference what is necessary to illustrate your answer.
         You MUST answer in the user's language.
 
         STRICT OUTPUT RULES:

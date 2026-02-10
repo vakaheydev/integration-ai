@@ -1,6 +1,8 @@
 import { Box, Paper, Typography, Avatar } from '@mui/material';
 import { Person as PersonIcon, SmartToy as BotIcon } from '@mui/icons-material';
 import type { ChatMessage } from '../models/types';
+import { parseMessageWithCode } from '../utils/messageParser';
+import { CodeBlock } from './CodeBlock';
 
 interface ChatMessageItemProps {
   message: ChatMessage;
@@ -8,6 +10,7 @@ interface ChatMessageItemProps {
 
 export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message }) => {
   const isUser = message.role === 'user';
+  const messageParts = parseMessageWithCode(message.content);
 
   return (
     <Box
@@ -21,7 +24,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message }) => 
         sx={{
           display: 'flex',
           flexDirection: isUser ? 'row-reverse' : 'row',
-          maxWidth: '75%',
+          maxWidth: '90%',
           alignItems: 'flex-start',
         }}
       >
@@ -44,9 +47,24 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message }) => 
             color: isUser ? 'primary.contrastText' : 'text.primary',
           }}
         >
-          <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-            {message.content}
-          </Typography>
+          {messageParts.map((part, index) => (
+            <Box key={index}>
+              {part.type === 'text' ? (
+                <Typography
+                  variant="body1"
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    mb: index < messageParts.length - 1 ? 1 : 0,
+                  }}
+                >
+                  {part.content}
+                </Typography>
+              ) : (
+                <CodeBlock code={part.content} language={part.language} />
+              )}
+            </Box>
+          ))}
           <Typography
             variant="caption"
             sx={{

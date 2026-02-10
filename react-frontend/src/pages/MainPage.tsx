@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
-import { Container, Box, Typography, Divider, Button } from '@mui/material';
-import { Refresh as RefreshIcon } from '@mui/icons-material';
+import { Container, Box, Typography, Divider, Button, AppBar, Toolbar, IconButton, Menu, MenuItem } from '@mui/material';
+import { Refresh as RefreshIcon, AccountCircle, Logout } from '@mui/icons-material';
 import { UploadDocument } from '../components/UploadDocument';
 import { DocumentList } from '../components/DocumentList';
 import { ChatInterface } from './ChatInterface';
 import { documentsApi } from '../api/documentsApi';
+import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import type { SwaggerDocument } from '../models/types';
 
 export const MainPage: React.FC = () => {
@@ -12,6 +14,24 @@ export const MainPage: React.FC = () => {
   const [selectedDocument, setSelectedDocument] = useState<SwaggerDocument | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  const { username, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setAnchorEl(event.currentTarget);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+  };
+
+  const handleLogout = () => {
+    handleMenuClose();
+    logout();
+    navigate('/login');
+  };
 
   const loadDocuments = async () => {
     setLoading(true);
@@ -53,15 +73,58 @@ export const MainPage: React.FC = () => {
 
   // Иначе показываем список документов и форму загрузки
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4, textAlign: 'center' }}>
-        <Typography variant="h3" component="h1" gutterBottom>
-          OpenAPI Analyzer
-        </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
-          Загрузите Swagger документ и задавайте вопросы с помощью AI
-        </Typography>
-      </Box>
+    <>
+      <AppBar position="static" elevation={1}>
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            OpenAPI Analyzer
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2">{username}</Typography>
+            <IconButton
+              size="large"
+              onClick={handleMenuOpen}
+              color="inherit"
+            >
+              <AccountCircle />
+            </IconButton>
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={handleMenuClose}
+              anchorOrigin={{
+                vertical: 'bottom',
+                horizontal: 'right',
+              }}
+              transformOrigin={{
+                vertical: 'top',
+                horizontal: 'right',
+              }}
+            >
+              <MenuItem disabled>
+                <Typography variant="body2" color="text.secondary">
+                  {username}
+                </Typography>
+              </MenuItem>
+              <Divider />
+              <MenuItem onClick={handleLogout}>
+                <Logout fontSize="small" sx={{ mr: 1 }} />
+                Выйти
+              </MenuItem>
+            </Menu>
+          </Box>
+        </Toolbar>
+      </AppBar>
+
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ mb: 4, textAlign: 'center' }}>
+          <Typography variant="h3" component="h1" gutterBottom>
+            OpenAPI Analyzer
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary">
+            Загрузите Swagger документ и задавайте вопросы с помощью AI
+          </Typography>
+        </Box>
 
       <Divider sx={{ mb: 4 }} />
 
@@ -87,10 +150,12 @@ export const MainPage: React.FC = () => {
             loading={loading}
             error={error}
             onSelectDocument={handleSelectDocument}
+            onDocumentDeleted={loadDocuments}
           />
         </Box>
       </Box>
-    </Container>
+      </Container>
+    </>
   );
 };
 

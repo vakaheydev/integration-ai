@@ -8,11 +8,23 @@ import {
   Alert,
   CircularProgress,
   Chip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  MenuItem,
+  Select,
+  FormControl,
+  InputLabel,
+  Tooltip,
 } from '@mui/material';
 import {
   Send as SendIcon,
   ArrowBack as ArrowBackIcon,
   Description as DescriptionIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
 } from '@mui/icons-material';
 import { documentsApi } from '../api/documentsApi';
 import type { SwaggerDocument, ChatMessage } from '../models/types';
@@ -28,6 +40,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [role, setRole] = useState<string>('analytic');
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [tempRole, setTempRole] = useState<string>('analytic');
+  const [summaryExpanded, setSummaryExpanded] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Автопрокрутка к последнему сообщению
@@ -38,6 +54,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  const handleRoleDialogOpen = () => {
+    setTempRole(role);
+    setRoleDialogOpen(true);
+  };
+
+  const handleRoleDialogClose = () => {
+    setRoleDialogOpen(false);
+  };
+
+  const handleRoleConfirm = () => {
+    setRole(tempRole);
+    setRoleDialogOpen(false);
+  };
 
   const handleSend = async () => {
     if (!input.trim() || loading) return;
@@ -56,11 +86,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
     try {
       const response = await documentsApi.sendChatMessage(document.id, {
         question: userMessage.content,
+        role: role,
       });
+
+      console.log('API Response:', response);
+
+      // Безопасное извлечение текста ответа из разных возможных полей
+      const responseText = response.answer ||
+                          (response as any).response ||
+                          (response as any).text ||
+                          (response as any).message ||
+                          JSON.stringify(response);
 
       const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: response.answer,
+        content: responseText,
         timestamp: new Date(),
       };
 
@@ -87,6 +127,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Заголовок */}
       <Paper elevation={2} sx={{ p: 2, mb: 2 }}>
+        {/* Основная информация */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <IconButton onClick={onBack} size="small">
             <ArrowBackIcon />
@@ -94,7 +135,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
           <DescriptionIcon color="primary" />
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h6">
-              {document.summary || `Документ ${document.id}`}
+              {document.name || document.summary || `Документ ${document.id}`}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               ID: {document.id}
@@ -102,6 +143,48 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
           </Box>
           <Chip label="Активен" color="success" size="small" />
         </Box>
+
+        {/* Краткое содержание документа (сворачиваемое) */}
+        {document.documentSummary && (
+          <Box
+            sx={{
+              mt: 2,
+              p: 1.5,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+              borderLeft: 4,
+              borderColor: 'primary.main',
+              cursor: 'pointer',
+              '&:hover': {
+                bgcolor: 'grey.100',
+              },
+            }}
+            onClick={() => setSummaryExpanded(!summaryExpanded)}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="subtitle2" color="primary" fontWeight="bold">
+                Краткое содержание документа
+              </Typography>
+              <IconButton size="small" sx={{ p: 0 }}>
+                {summaryExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </IconButton>
+            </Box>
+            {summaryExpanded && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{
+                  mt: 1,
+                  whiteSpace: 'pre-line',
+                  maxHeight: '200px',
+                  overflow: 'auto',
+                }}
+              >
+                {document.documentSummary}
+              </Typography>
+            )}
+          </Box>
+        )}
       </Paper>
 
       {/* Область сообщений */}
@@ -162,7 +245,33 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
           </Alert>
         )}
 
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+          <Tooltip title="Выбрать роль">
+            <Button
+              onClick={handleRoleDialogOpen}
+              disabled={loading}
+              sx={{
+                minWidth: 'auto',
+                bgcolor: 'primary.main',
+                color: 'white',
+                px: 1.5,
+                py: 1.2,
+                height: '40px',
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                },
+                '&:disabled': {
+                  bgcolor: 'action.disabledBackground',
+                  color: 'action.disabled',
+                }
+              }}
+              variant="contained"
+            >
+              <Typography variant="caption" fontWeight="bold">
+                ROLE
+              </Typography>
+            </Button>
+          </Tooltip>
           <TextField
             fullWidth
             multiline
@@ -177,11 +286,43 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
             color="primary"
             onClick={handleSend}
             disabled={!input.trim() || loading}
-            sx={{ alignSelf: 'flex-end' }}
           >
             <SendIcon />
           </IconButton>
         </Box>
+
+        {/* Диалог выбора роли */}
+        <Dialog
+          open={roleDialogOpen}
+          onClose={handleRoleDialogClose}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Выбор роли</DialogTitle>
+          <DialogContent sx={{ pt: 3, pb: 2 }}>
+            <FormControl fullWidth sx={{ mb: 2 }}>
+              <InputLabel id="role-select-label">Роль</InputLabel>
+              <Select
+                labelId="role-select-label"
+                value={tempRole}
+                label="Роль"
+                onChange={(e) => setTempRole(e.target.value)}
+              >
+                <MenuItem value="analytic">Аналитик (analytic)</MenuItem>
+                <MenuItem value="programmer">Программист (programmer)</MenuItem>
+              </Select>
+            </FormControl>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              Текущая роль: <strong>{role === 'analytic' ? 'Аналитик' : 'Программист'}</strong>
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={handleRoleDialogClose}>Отмена</Button>
+            <Button onClick={handleRoleConfirm} variant="contained">
+              Применить
+            </Button>
+          </DialogActions>
+        </Dialog>
       </Paper>
     </Box>
   );

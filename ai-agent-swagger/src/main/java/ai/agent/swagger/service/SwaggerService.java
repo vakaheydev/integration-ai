@@ -86,7 +86,7 @@ public class SwaggerService {
         return documentStorageService.findByUserId(userId);
     }
 
-    public Map<String, String> uploadSwagger(String swaggerContent, String userId) {
+    public Map<String, String> uploadSwagger(String swaggerContent, String userId, String name) {
         String swaggerMethodSummary = resolveSwaggerMethodSummary(swaggerContent);
         String swaggerSummaryPrompt = promptBuilderService.getDocumentChatUpload(swaggerMethodSummary);
         String swaggerSummaryResponse = aiChatService.chat(swaggerSummaryPrompt);
@@ -99,6 +99,7 @@ public class SwaggerService {
         SwaggerDocument swaggerDocument = SwaggerDocument.builder()
                 .id(documentId)
                 .userId(userId)
+                .name(name)
                 .documentSummary(swaggerSummaryResponse)
                 .methodSummary(swaggerMethodSummary)
                 .content(swaggerContent)
