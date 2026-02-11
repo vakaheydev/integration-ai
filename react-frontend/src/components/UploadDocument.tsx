@@ -33,7 +33,7 @@ export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess 
         setSelectedFile(file);
         setError(null);
       } else {
-        setError('Пожалуйста, выберите файл в формате JSON или YAML (.json, .yml, .yaml)');
+        setError('Please select a JSON or YAML file (.json, .yml, .yaml)');
         setSelectedFile(null);
       }
     }
@@ -41,12 +41,12 @@ export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess 
 
   const handleUpload = useCallback(async () => {
     if (!selectedFile) {
-      setError('Пожалуйста, выберите файл');
+      setError('Please select a file');
       return;
     }
 
     if (!documentName.trim()) {
-      setError('Пожалуйста, укажите название документа');
+      setError('Please specify document name');
       return;
     }
 
@@ -56,7 +56,7 @@ export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess 
 
     try {
       await documentsApi.uploadDocument(selectedFile, documentName.trim());
-      setSuccess('Документ успешно загружен!');
+      setSuccess('Document successfully uploaded!');
       setSelectedFile(null);
       setDocumentName('');
 
@@ -71,7 +71,7 @@ export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess 
         onUploadSuccess();
       }, 1000);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка при загрузке документа');
+      setError(err.response?.data?.message || 'Error uploading document');
     } finally {
       setLoading(false);
     }
@@ -80,18 +80,18 @@ export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess 
   return (
     <Paper elevation={2} sx={{ p: 3 }}>
       <Typography variant="h6" gutterBottom>
-        Загрузка OpenAPI документа
+        Upload OpenAPI Document
       </Typography>
 
       <TextField
         fullWidth
-        label="Название документа"
+        label="Document Name"
         value={documentName}
         onChange={(e) => setDocumentName(e.target.value)}
         margin="normal"
         disabled={loading}
         required
-        placeholder="Например: API управления пользователями"
+        placeholder="e.g., User Management API"
       />
 
       <Box sx={{ mt: 2, mb: 2 }}>
@@ -111,14 +111,14 @@ export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess 
             disabled={loading}
             startIcon={<CloudUploadIcon />}
           >
-            Выбрать JSON или YAML файл
+            Select JSON or YAML file
           </Button>
         </label>
       </Box>
 
       {selectedFile && (
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Выбран файл: {selectedFile.name}
+          Selected file: {selectedFile.name}
         </Typography>
       )}
 
@@ -129,7 +129,7 @@ export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess 
         disabled={!selectedFile || !documentName.trim() || loading}
         startIcon={loading ? <CircularProgress size={20} /> : <CloudUploadIcon />}
       >
-        {loading ? 'Загрузка...' : 'Загрузить документ'}
+        {loading ? 'Uploading...' : 'Upload Document'}
       </Button>
 
       {error && (

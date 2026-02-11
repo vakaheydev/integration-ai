@@ -106,7 +106,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
 
       setMessages((prev) => [...prev, assistantMessage]);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка при отправке сообщения');
+      setError(err.response?.data?.message || 'Error sending message');
 
       // Удаляем сообщение пользователя при ошибке, чтобы можно было попробовать снова
       setMessages((prev) => prev.slice(0, -1));
@@ -135,13 +135,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
           <DescriptionIcon color="primary" />
           <Box sx={{ flexGrow: 1 }}>
             <Typography variant="h6">
-              {document.name || document.summary || `Документ ${document.id}`}
+              {document.name || document.summary || `Document ${document.id}`}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               ID: {document.id}
             </Typography>
           </Box>
-          <Chip label="Активен" color="success" size="small" />
+          <Chip label="Active" color="success" size="small" />
         </Box>
 
         {/* Краткое содержание документа (сворачиваемое) */}
@@ -163,7 +163,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="subtitle2" color="primary" fontWeight="bold">
-                Краткое содержание документа
+                Document Summary
               </Typography>
               <IconButton size="small" sx={{ p: 0 }}>
                 {summaryExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
@@ -212,11 +212,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
             }}
           >
             <Typography variant="h6" gutterBottom>
-              Задайте вопрос по документу
+              Ask a question about the document
             </Typography>
             <Typography variant="body2" textAlign="center">
-              Вы можете спросить о структуре API, эндпоинтах, параметрах и других деталях
-              OpenAPI документа
+              You can ask about API structure, endpoints, parameters, and other details
+              of the OpenAPI document
             </Typography>
           </Box>
         ) : (
@@ -228,7 +228,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <CircularProgress size={24} />
                 <Typography variant="body2" color="text.secondary">
-                  Генерация ответа...
+                  Generating response...
                 </Typography>
               </Box>
             )}
@@ -246,7 +246,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
         )}
 
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-          <Tooltip title="Выбрать роль">
+          <Tooltip title="Select role">
             <Button
               onClick={handleRoleDialogOpen}
               disabled={loading}
@@ -276,7 +276,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
             fullWidth
             multiline
             maxRows={4}
-            placeholder="Введите ваш вопрос..."
+            placeholder="Enter your question..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -297,29 +297,45 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
           onClose={handleRoleDialogClose}
           maxWidth="sm"
           fullWidth
+          PaperProps={{
+            sx: {
+              minHeight: '300px',
+            }
+          }}
         >
-          <DialogTitle>Выбор роли</DialogTitle>
-          <DialogContent sx={{ pt: 3, pb: 2 }}>
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel id="role-select-label">Роль</InputLabel>
+          <DialogTitle sx={{ fontSize: '1.25rem', py: 2.5 }}>Select Role</DialogTitle>
+          <DialogContent sx={{ pt: 6, pb: 4, minHeight: '180px' }}>
+            <FormControl fullWidth sx={{ mb: 3, mt: 1 }}>
+              <InputLabel id="role-select-label" sx={{ fontSize: '1rem' }}>Role</InputLabel>
               <Select
                 labelId="role-select-label"
                 value={tempRole}
-                label="Роль"
+                label="Role"
                 onChange={(e) => setTempRole(e.target.value)}
+                sx={{
+                  minHeight: '56px',
+                  '& .MuiSelect-select': {
+                    py: 2,
+                    fontSize: '1rem',
+                  }
+                }}
               >
-                <MenuItem value="analytic">Аналитик (analytic)</MenuItem>
-                <MenuItem value="programmer">Программист (programmer)</MenuItem>
+                <MenuItem value="analytic" sx={{ py: 2, fontSize: '1rem' }}>
+                  Analyst (analytic)
+                </MenuItem>
+                <MenuItem value="programmer" sx={{ py: 2, fontSize: '1rem' }}>
+                  Programmer (programmer)
+                </MenuItem>
               </Select>
             </FormControl>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              Текущая роль: <strong>{role === 'analytic' ? 'Аналитик' : 'Программист'}</strong>
+            <Typography variant="body2" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+              Current role: <strong>{role === 'analytic' ? 'Analyst' : 'Programmer'}</strong>
             </Typography>
           </DialogContent>
-          <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={handleRoleDialogClose}>Отмена</Button>
-            <Button onClick={handleRoleConfirm} variant="contained">
-              Применить
+          <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
+            <Button onClick={handleRoleDialogClose} sx={{ py: 1 }}>Cancel</Button>
+            <Button onClick={handleRoleConfirm} variant="contained" sx={{ py: 1 }}>
+              Apply
             </Button>
           </DialogActions>
         </Dialog>

@@ -37,7 +37,7 @@ export const LoginPage: React.FC = () => {
       setError(
         err.response?.data?.message ||
         err.message ||
-        'Ошибка при входе. Проверьте имя пользователя и пароль.'
+        'Login error. Please check your username and password.'
       );
     } finally {
       setLoading(false);
@@ -56,7 +56,7 @@ export const LoginPage: React.FC = () => {
             OpenAPI Analyzer
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
-            Вход в систему
+            Sign In
           </Typography>
         </Box>
 
@@ -70,7 +70,7 @@ export const LoginPage: React.FC = () => {
 
             <TextField
               fullWidth
-              label="Имя пользователя"
+              label="Username"
               variant="outlined"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -88,7 +88,7 @@ export const LoginPage: React.FC = () => {
 
             <TextField
               fullWidth
-              label="Пароль"
+              label="Password"
               type={showPassword ? 'text' : 'password'}
               variant="outlined"
               value={password}
@@ -126,10 +126,10 @@ export const LoginPage: React.FC = () => {
               {loading ? (
                 <>
                   <CircularProgress size={24} sx={{ mr: 1 }} />
-                  Вход...
+                  Signing in...
                 </>
               ) : (
-                'Войти'
+                'Sign In'
               )}
             </Button>
           </Box>
@@ -137,7 +137,7 @@ export const LoginPage: React.FC = () => {
 
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography variant="caption" color="text.secondary">
-            Используйте свои учетные данные для доступа к системе
+            Use your credentials to access the system
           </Typography>
         </Box>
       </Paper>

@@ -40,7 +40,7 @@ export const MainPage: React.FC = () => {
       const docs = await documentsApi.getDocuments();
       setDocuments(docs);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка при загрузке документов');
+      setError(err.response?.data?.message || 'Error loading documents');
     } finally {
       setLoading(false);
     }
@@ -109,7 +109,7 @@ export const MainPage: React.FC = () => {
               <Divider />
               <MenuItem onClick={handleLogout}>
                 <Logout fontSize="small" sx={{ mr: 1 }} />
-                Выйти
+                Logout
               </MenuItem>
             </Menu>
           </Box>
@@ -122,7 +122,7 @@ export const MainPage: React.FC = () => {
             OpenAPI Analyzer
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
-            Загрузите Swagger документ и задавайте вопросы с помощью AI
+            Upload Swagger document and ask questions using AI
           </Typography>
         </Box>
 
@@ -135,14 +135,14 @@ export const MainPage: React.FC = () => {
 
         <Box>
           <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography variant="h6">Документы</Typography>
+            <Typography variant="h6">Documents</Typography>
             <Button
               startIcon={<RefreshIcon />}
               onClick={loadDocuments}
               disabled={loading}
               size="small"
             >
-              Обновить
+              Refresh
             </Button>
           </Box>
           <DocumentList

@@ -70,7 +70,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         onDocumentDeleted();
       }
     } catch (err: any) {
-      setDeleteError(err.response?.data?.message || 'Ошибка при удалении документа');
+      setDeleteError(err.response?.data?.message || 'Error deleting document');
     } finally {
       setDeleting(false);
     }
@@ -80,7 +80,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     return (
       <Paper elevation={2} sx={{ p: 3, textAlign: 'center' }}>
         <CircularProgress />
-        <Typography sx={{ mt: 2 }}>Загрузка документов...</Typography>
+        <Typography sx={{ mt: 2 }}>Loading documents...</Typography>
       </Paper>
     );
   }
@@ -97,7 +97,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
     return (
       <Paper elevation={2} sx={{ p: 3 }}>
         <Alert severity="info">
-          Нет загруженных документов. Загрузите свой первый OpenAPI документ.
+          No uploaded documents. Upload your first OpenAPI document.
         </Alert>
       </Paper>
     );
@@ -106,7 +106,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   return (
     <Paper elevation={2}>
       <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
-        <Typography variant="h6">Мои документы</Typography>
+        <Typography variant="h6">My Documents</Typography>
       </Box>
       <List>
         {documents.map((doc) => (
@@ -129,8 +129,8 @@ export const DocumentList: React.FC<DocumentListProps> = ({
                 <DescriptionIcon color="primary" />
               </Box>
               <ListItemText
-                primary={doc.name || doc.summary || `Документ ${doc.id}`}
-                secondary={`ID: ${doc.id}${doc.uploadedAt ? ` • ${new Date(doc.uploadedAt).toLocaleDateString('ru-RU')}` : ''}`}
+                primary={doc.name || doc.summary || `Document ${doc.id}`}
+                secondary={`ID: ${doc.id}${doc.uploadedAt ? ` • ${new Date(doc.uploadedAt).toLocaleDateString('en-US')}` : ''}`}
               />
             </ListItemButton>
           </ListItem>
@@ -145,16 +145,16 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         aria-describedby="delete-dialog-description"
       >
         <DialogTitle id="delete-dialog-title">
-          Удалить документ?
+          Delete document?
         </DialogTitle>
         <DialogContent>
           <DialogContentText id="delete-dialog-description">
-            Вы действительно хотите удалить документ{' '}
+            Are you sure you want to delete the document{' '}
             <strong>
-              {documentToDelete?.name || documentToDelete?.summary || `с ID ${documentToDelete?.id}`}
+              {documentToDelete?.name || documentToDelete?.summary || `with ID ${documentToDelete?.id}`}
             </strong>?
             <br />
-            Это действие нельзя отменить.
+            This action cannot be undone.
           </DialogContentText>
           {deleteError && (
             <Alert severity="error" sx={{ mt: 2 }}>
@@ -164,7 +164,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         </DialogContent>
         <DialogActions>
           <Button onClick={handleDeleteCancel} disabled={deleting}>
-            Отмена
+            Cancel
           </Button>
           <Button
             onClick={handleDeleteConfirm}
@@ -173,7 +173,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
             disabled={deleting}
             startIcon={deleting ? <CircularProgress size={20} /> : undefined}
           >
-            {deleting ? 'Удаление...' : 'Удалить'}
+            {deleting ? 'Deleting...' : 'Delete'}
           </Button>
         </DialogActions>
       </Dialog>
