@@ -25,10 +25,12 @@ import {
   Description as DescriptionIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
 import { documentsApi } from '../api/documentsApi';
 import type { SwaggerDocument, ChatMessage } from '../models/types';
 import { ChatMessageItem } from '../components/ChatMessageItem';
+import { SwaggerUIViewer } from '../components/SwaggerUIViewer';
 
 interface ChatInterfaceProps {
   document: SwaggerDocument;
@@ -44,6 +46,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [tempRole, setTempRole] = useState<string>('analytic');
   const [summaryExpanded, setSummaryExpanded] = useState(true);
+  const [showSwaggerUI, setShowSwaggerUI] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Автопрокрутка к последнему сообщению
@@ -141,6 +144,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
               ID: {document.id}
             </Typography>
           </Box>
+          {document.content && (
+            <Button
+              onClick={() => setShowSwaggerUI(!showSwaggerUI)}
+              variant="contained"
+              sx={{
+                bgcolor: 'primary.main',
+                color: 'white',
+                px: 2,
+                py: 1,
+                fontSize: '0.875rem',
+                fontWeight: 'bold',
+                '&:hover': {
+                  bgcolor: 'primary.dark',
+                }
+              }}
+            >
+              {showSwaggerUI ? 'Switch to Chat' : 'Switch to Swagger UI'}
+            </Button>
+          )}
           <Chip label="Active" color="success" size="small" />
         </Box>
 
@@ -187,63 +209,83 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
         )}
       </Paper>
 
-      {/* Область сообщений */}
-      <Paper
-        elevation={2}
-        sx={{
-          flexGrow: 1,
-          p: 2,
-          mb: 2,
-          overflow: 'auto',
-          display: 'flex',
-          flexDirection: 'column',
-          minHeight: 0,
-        }}
-      >
-        {messages.length === 0 ? (
-          <Box
+      {/* Условный рендеринг: Swagger UI или Чат */}
+      {showSwaggerUI && document.content ? (
+        // Swagger UI View
+        <Paper
+          elevation={2}
+          sx={{
+            flexGrow: 1,
+            mb: 2,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
+          <SwaggerUIViewer
+            content={document.content}
+            documentName={document.name || document.summary}
+          />
+        </Paper>
+      ) : (
+        <>
+          {/* Область сообщений */}
+          <Paper
+            elevation={2}
             sx={{
+              flexGrow: 1,
+              p: 2,
+              mb: 2,
+              overflow: 'auto',
               display: 'flex',
               flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: 'text.secondary',
+              minHeight: 0,
             }}
           >
-            <Typography variant="h6" gutterBottom>
-              Ask a question about the document
-            </Typography>
-            <Typography variant="body2" textAlign="center">
-              You can ask about API structure, endpoints, parameters, and other details
-              of the OpenAPI document
-            </Typography>
-          </Box>
-        ) : (
-          <>
-            {messages.map((message, index) => (
-              <ChatMessageItem key={index} message={message} />
-            ))}
-            {loading && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <CircularProgress size={24} />
-                <Typography variant="body2" color="text.secondary">
-                  Generating response...
+            {messages.length === 0 ? (
+              <Box
+                sx={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  color: 'text.secondary',
+                }}
+              >
+                <Typography variant="h6" gutterBottom>
+                  Ask a question about the document
+                </Typography>
+                <Typography variant="body2" textAlign="center">
+                  You can ask about API structure, endpoints, parameters, and other details
+                  of the OpenAPI document
                 </Typography>
               </Box>
+            ) : (
+              <>
+                {messages.map((message, index) => (
+                  <ChatMessageItem key={index} message={message} />
+                ))}
+                {loading && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <CircularProgress size={24} />
+                    <Typography variant="body2" color="text.secondary">
+                      Generating response...
+                    </Typography>
+                  </Box>
+                )}
+                <div ref={messagesEndRef} />
+              </>
             )}
-            <div ref={messagesEndRef} />
-          </>
-        )}
-      </Paper>
+          </Paper>
 
-      {/* Поле ввода */}
-      <Paper elevation={2} sx={{ p: 2 }}>
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
+          {/* Поле ввода */}
+          <Paper elevation={2} sx={{ p: 2 }}>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+                {error}
+              </Alert>
+            )}
 
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
           <Tooltip title="Select role">
@@ -290,19 +332,22 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
             <SendIcon />
           </IconButton>
         </Box>
+      </Paper>
+        </>
+      )}
 
-        {/* Диалог выбора роли */}
-        <Dialog
-          open={roleDialogOpen}
-          onClose={handleRoleDialogClose}
-          maxWidth="sm"
-          fullWidth
-          PaperProps={{
-            sx: {
-              minHeight: '300px',
-            }
-          }}
-        >
+      {/* Диалог выбора роли */}
+      <Dialog
+        open={roleDialogOpen}
+        onClose={handleRoleDialogClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            minHeight: '300px',
+          }
+        }}
+      >
           <DialogTitle sx={{ fontSize: '1.25rem', py: 2.5 }}>Select Role</DialogTitle>
           <DialogContent sx={{ pt: 6, pb: 4, minHeight: '180px' }}>
             <FormControl fullWidth sx={{ mb: 3, mt: 1 }}>
@@ -336,10 +381,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
             <Button onClick={handleRoleDialogClose} sx={{ py: 1 }}>Cancel</Button>
             <Button onClick={handleRoleConfirm} variant="contained" sx={{ py: 1 }}>
               Apply
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Paper>
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

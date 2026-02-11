@@ -74,7 +74,7 @@ export const ChatMessageItem: React.FC<ChatMessageItemProps> = ({ message }) => 
               fontSize: '0.7rem',
             }}
           >
-            {message.timestamp.toLocaleTimeString('ru-RU', {
+            {message.timestamp.toLocaleTimeString('en-US', {
               hour: '2-digit',
               minute: '2-digit',
             })}
