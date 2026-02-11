@@ -50,12 +50,12 @@ public class UserSwaggerController {
     }
 
     @PostMapping("/search")
-    public ResponseEntity<SwaggerSearchResult> query(@RequestParam("query") String query) {
+    public ResponseEntity<?> query(@RequestParam("query") String query) {
         try {
             SwaggerSearchResult result = swaggerService.search(query);
             if (result.isPresent() && result.getDocument().getUserId() != null
                     && !result.getDocument().getUserId().equals(SecurityUtils.currentUser().getId())) {
-                return ResponseEntity.status(403).build();
+                return ResponseEntity.status(403).body(Map.of("status", "403", "error", "Access denied"));
             }
             return ResponseEntity.ok(result);
         } catch (NoSuchElementException e) {
