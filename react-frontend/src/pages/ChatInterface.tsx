@@ -25,7 +25,7 @@ import {
   Description as DescriptionIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  ArrowForward as ArrowForwardIcon,
+
 } from '@mui/icons-material';
 import { documentsApi } from '../api/documentsApi';
 import type { SwaggerDocument, ChatMessage } from '../models/types';

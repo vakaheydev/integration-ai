@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Container, Box, Typography, Divider, Button, AppBar, Toolbar, IconButton, Menu, MenuItem } from '@mui/material';
-import { Refresh as RefreshIcon, AccountCircle, Logout } from '@mui/icons-material';
+import { Container, Box, Typography, Divider, Button, AppBar, Toolbar, IconButton, Menu, MenuItem, TextField, Alert, CircularProgress } from '@mui/material';
+import { Refresh as RefreshIcon, AccountCircle, Logout, Search as SearchIcon } from '@mui/icons-material';
 import { UploadDocument } from '../components/UploadDocument';
 import { DocumentList } from '../components/DocumentList';
 import { ChatInterface } from './ChatInterface';
@@ -15,6 +15,11 @@ export const MainPage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Состояния для поиска
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResult, setSearchResult] = useState<string | null>(null);
 
   const { username, logout } = useAuth();
   const navigate = useNavigate();
@@ -60,6 +65,40 @@ export const MainPage: React.FC = () => {
 
   const handleBackToList = () => {
     setSelectedDocument(null);
+  };
+
+  // Обработчик поиска
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchResult(null);
+    setError(null);
+
+    try {
+      const result = await documentsApi.searchDocuments(searchQuery);
+
+      if (result.present && result.document) {
+        // Если документ найден, открываем его страницу
+        setSelectedDocument(result.document);
+      } else {
+        // Если документ не найден, показываем ответ модели
+        setSearchResult(result.modelResponse);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Search error');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  // Обработчик нажатия Enter в поле поиска
+  const handleSearchKeyPress = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
   };
 
   // Если выбран документ, показываем интерфейс чата
@@ -124,6 +163,34 @@ export const MainPage: React.FC = () => {
           <Typography variant="subtitle1" color="text.secondary">
             Upload Swagger document and ask questions using AI
           </Typography>
+        </Box>
+
+        {/* Поле поиска */}
+        <Box sx={{ mb: 4, maxWidth: '600px', mx: 'auto' }}>
+          <TextField
+            fullWidth
+            variant="outlined"
+            placeholder="Search for documents... (Press Enter to search)"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyPress={handleSearchKeyPress}
+            disabled={searchLoading}
+            InputProps={{
+              startAdornment: <SearchIcon sx={{ mr: 1, color: 'action.active' }} />,
+              endAdornment: searchLoading ? <CircularProgress size={20} /> : null,
+            }}
+          />
+
+          {/* Результат поиска */}
+          {searchResult && (
+            <Alert
+              severity="info"
+              sx={{ mt: 2 }}
+              onClose={() => setSearchResult(null)}
+            >
+              {searchResult}
+            </Alert>
+          )}
         </Box>
 
       <Divider sx={{ mb: 4 }} />

@@ -21,7 +21,7 @@ public class OpenAPIConfig {
                         .description("API для работы со Swagger документами через AI агента")
                         .contact(new Contact()
                                 .name("Student Support")
-                                .email("support@example.com")))
+                                .email("ivan.novgor257@gmail.com")))
                 .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
                 .components(new Components()
                         .addSecuritySchemes("Bearer Authentication",

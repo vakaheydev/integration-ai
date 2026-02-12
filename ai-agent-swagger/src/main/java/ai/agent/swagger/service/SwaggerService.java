@@ -63,6 +63,38 @@ public class SwaggerService {
                 .build();
     }
 
+    public SwaggerSearchResult search(String query, String userId) {
+        String extractKeywordsPrompt = promptBuilderService.getExtractKeywordsPrompt(query);
+        String extractedKeywords = aiChatService.chat(extractKeywordsPrompt);
+
+        SwaggerVectorSearchResponse searchResult = vectorStorageService.search(extractedKeywords, userId);
+        SwaggerDocument swgDocument = null;
+        String prompt;
+        if (!searchResult.isPresent()) {
+            log.info("Data not found in store by keywords {}", extractedKeywords);
+            prompt = promptBuilderService.getVectorSearchNotFoundPrompt(query);
+        } else {
+            swgDocument = getSwaggerById(searchResult.getDocumentId()).orElseThrow();
+            log.info("Found relevant data in store by keywords {}", extractedKeywords);
+            prompt = promptBuilderService.getDocumentChatAnalyze(query, swgDocument.getDocumentSummary(), swgDocument.getMethodSummary());
+        }
+
+        String response = aiChatService.chat(prompt);
+
+        if (!searchResult.isPresent()) {
+            return SwaggerSearchResult.builder()
+                    .present(false)
+                    .modelResponse(response)
+                    .build();
+        }
+
+        return SwaggerSearchResult.builder()
+                .present(true)
+                .modelResponse(response)
+                .document(swgDocument)
+                .build();
+    }
+
     public String chatByDocumentId(String documentId, String userId, String query, String role) {
         SwaggerDocument swgDocument = getSwaggerById(documentId).orElseThrow();
         String prompt = "";

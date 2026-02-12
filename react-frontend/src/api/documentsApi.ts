@@ -3,6 +3,7 @@ import type {
   SwaggerDocument,
   ChatRequest,
   ChatResponse,
+  SearchResponse,
 } from '../models/types';
 import { authStorage } from '../services/authStorage';
 
@@ -86,6 +87,14 @@ export const documentsApi = {
   // Удаление документа
   deleteDocument: async (documentId: string): Promise<void> => {
     await apiClient.delete(`swagger/${documentId}`);
+  },
+
+  // Поиск документов
+  searchDocuments: async (query: string): Promise<SearchResponse> => {
+    const response = await apiClient.post<SearchResponse>('swagger/search', {
+      query
+    });
+    return response.data;
   },
 };
 

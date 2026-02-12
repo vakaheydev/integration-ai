@@ -75,6 +75,27 @@ public class EmbeddingService {
         }
     }
 
+    public Optional<EmbeddingMatch<TextSegment>> search(String searchQuery, String userId) {
+        // TODO: Bugfix - filter doesn't work, need to investigate why
+//        Filter filter = metadataKey("user-id").isEqualTo(userId);
+
+        EmbeddingSearchRequest embeddingSearchRequest = EmbeddingSearchRequest
+                .builder()
+//                .filter(filter)
+                .queryEmbedding(embed(searchQuery))
+                .build();
+
+        EmbeddingSearchResult<TextSegment> embeddingSearchResult = embeddingStore.search(embeddingSearchRequest);
+        List<EmbeddingMatch<TextSegment>> embeddingMatch = embeddingSearchResult.matches();
+        if (embeddingMatch.isEmpty()) {
+            return Optional.empty();
+        }
+        else {
+            EmbeddingMatch<TextSegment> first = embeddingMatch.getFirst();
+            return Optional.of(first);
+        }
+    }
+
     public String searchByDocumentId(String documentId) {
         Filter filter = metadataKey("document-id").isEqualTo(documentId);
 

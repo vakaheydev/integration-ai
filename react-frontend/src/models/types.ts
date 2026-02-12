@@ -37,3 +37,13 @@ export interface ErrorResponse {
   error?: string;
 }
 
+export interface SearchRequest {
+  query: string;
+}
+
+export interface SearchResponse {
+  present: boolean;
+  document?: SwaggerDocument;
+  modelResponse: string;
+}
+

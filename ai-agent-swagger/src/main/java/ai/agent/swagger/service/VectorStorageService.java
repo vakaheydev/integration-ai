@@ -46,6 +46,22 @@ public class VectorStorageService {
                 .build();
     }
 
+    public SwaggerVectorSearchResponse search(String searchQuery, String userId) {
+        EmbeddingMatch<TextSegment> searchResult = embeddingService.search(searchQuery, userId).orElse(null);
+        if (searchResult == null) {
+            return SwaggerVectorSearchResponse.builder()
+                    .present(false)
+                    .build();
+        }
+        TextSegment embedded = searchResult.embedded();
+        return SwaggerVectorSearchResponse.builder()
+                .present(true)
+                .content(embedded.text())
+                .metadata(embedded.metadata().toMap())
+                .documentId(searchResult.embeddingId())
+                .build();
+    }
+
     public void deleteById(String id) {
         embeddingService.deleteById(id);
     }
