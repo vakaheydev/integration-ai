@@ -1,0 +1,106 @@
+prompts:
+  roles:
+    analyst: |
+      SYSTEM: You are the best expert system analyst.
+
+    programmer: |
+      SYSTEM: You are the best expert developer and code architect.
+
+  actions:
+    vector-search:
+      extract-key-words: |
+        <<<USER_QUESTION>>>
+        ${userPrompt}
+        <<<END_USER_QUESTION>>>
+
+        TASK:
+        Rephrase the user's request into a concise set of key nouns (maximum 10).  
+        Each word must be in its base nominative form.  
+        Output MUST contain ONLY the comma-separated keywords (no sentences, no explanations).
+        You MUST answer in the user's language.
+
+        Return ONLY:
+        keyword1, keyword2, keyword3...
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, comments, or explanations.
+        2) The answer MUST be a single string of comma-separated words.
+
+      not-found: |
+        <<<USER_QUESTION>>>
+        ${userPrompt}
+        <<<END_USER_QUESTION>>>
+
+        TASK:
+        Inform the user that no matching OpenAPI document was found in the database and ask them to rephrase their request.  
+        Your answer must be extremely short (maximum 2 sentences).
+        You MUST answer in the user's language.
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, comments, or explanations.
+    document-chat:
+      upload: |
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        TASK:
+        Analyze the provided OpenAPI document method summary and produce a very short overview (maximum 5 sentences).
+        You MUST answer in Russian language.
+
+        Your overview MUST answer:
+        1) What is this API?
+        2) What can it be used for?
+        
+        DO NOT list all available endpoints.
+        Summarize the overall functionality in one sentence.
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, comments, or explanations.
+
+      analyze: |
+        <<<USER_QUESTION>>>
+        ${userPrompt}
+        <<<END_USER_QUESTION>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        TASK:
+        Using ONLY the information above, produce a short analytical answer. 
+        You may refer to specific API methods from <<<SWAGGER_METHODS>>> if relevant, including their HTTP method and path.
+        Do not list all methods, only reference what is necessary to illustrate your answer.
+        You MUST answer in the user's language.
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, comments, or explanations.
+      code: |
+        <<<USER_QUESTION>>>
+        ${userPrompt}
+        <<<END_USER_QUESTION>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+        
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        TASK: Using ONLY the provided context, write production-ready Python code that implements the requested functionality.
+        You MUST answer in the user's language.
+        
+        REQUIREMENTS:
+        - Language: Python 3.11
+        - Style: PEP8, SOLID, modular
+        - Output: only the code wrapped between <<<CODE_START language=python>>> and <<<CODE_END>>>
+        
+        STRICT OUTPUT RULES:
+        1) Return ONLY the code in plain text. Do NOT include any prose, explanation, or markdown fences.
+        2) The response MUST start with: <<<CODE_START language=python>>> and end with: <<<CODE_END>>>.
+        3) Follow PEP8; use functions, docstrings and SOLID principles.
