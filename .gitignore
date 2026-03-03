@@ -13,6 +13,7 @@ target/
 *.iws
 *.iml
 *.ipr
+.xlsx
 
 docker/chroma_data/*
 
