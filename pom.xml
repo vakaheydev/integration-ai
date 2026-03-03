@@ -19,7 +19,6 @@
         <java.version>21</java.version>
 
         <spring.boot.version>3.5.6</spring.boot.version>
-        <junit.version>4.13.2</junit.version>
         <langchain.version>1.7.1</langchain.version>
         <langchain.reactor.version>1.7.1-beta14</langchain.reactor.version>
         <lombok.version>1.18.36</lombok.version>
@@ -34,6 +33,7 @@
         <jjwt.version>0.11.5</jjwt.version>
         <hibernate.validator.version>8.0.1.Final</hibernate.validator.version>
         <springdoc.version>2.7.0</springdoc.version>
+        <spring.security.version>6.5.0</spring.security.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
@@ -43,9 +43,17 @@
     <dependencyManagement>
         <dependencies>
             <dependency>
-                <groupId>junit</groupId>
-                <artifactId>junit</artifactId>
-                <version>${junit.version}</version>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-test</artifactId>
+                <version>${spring.boot.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework.security</groupId>
+                <artifactId>spring-security-test</artifactId>
+                <version>${spring.security.version}</version>
+                <scope>test</scope>
             </dependency>
 
             <dependency>
