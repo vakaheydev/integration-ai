@@ -13,7 +13,6 @@ public class SecurityUtils {
             return securityUser;
         }
         if (principal instanceof UserDetails userDetails) {
-            // fallback для тестов с @WithMockUser — возвращаем SecurityUser с id = username
             return new SecurityUser(userDetails.getUsername(), userDetails.getUsername(),
                     "", userDetails.getAuthorities());
         }

@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("FT-005/FT-009/FT-010 — Валидация Swagger и генерация промптов")
+@DisplayName("FT-005/FT-009/FT-010 - Валидация Swagger и генерация промптов")
 public class PromptBuilderServiceTest {
 
     private PromptBuilderService promptBuilderService;

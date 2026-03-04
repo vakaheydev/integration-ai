@@ -25,7 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-@DisplayName("FT-006 — Валидация данных пользователя при регистрации (некорректные данные)")
+@DisplayName("FT-006 - Валидация данных пользователя при регистрации (некорректные данные)")
 @ExtendWith(MockitoExtension.class)
 public class UserServiceTest {
 
@@ -48,11 +48,11 @@ public class UserServiceTest {
     }
 
     // ========================
-    // FT-006: негативные тесты — некорректные данные, валидация отклоняет запрос
+    // FT-006: негативные тесты - некорректные данные, валидация отклоняет запрос
     // ========================
 
     @Test
-    @DisplayName("FT-006: пустой логин — нарушение ограничения @NotBlank")
+    @DisplayName("FT-006: пустой логин - нарушение ограничения @NotBlank")
     public void testValidation_blankLogin_violationReported() {
         CreateUserRequest request = new CreateUserRequest(
                 "user@example.com", "", "password123", null
@@ -69,7 +69,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("FT-006: логин из 1 символа — нарушение ограничения @Size(min=3)")
+    @DisplayName("FT-006: логин из 1 символа - нарушение ограничения @Size(min=3)")
     public void testValidation_tooShortLogin_violationReported() {
         CreateUserRequest request = new CreateUserRequest(
                 "user@example.com", "ab", "password123", null
@@ -86,7 +86,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("FT-006: пустой пароль — нарушение ограничения @NotBlank")
+    @DisplayName("FT-006: пустой пароль - нарушение ограничения @NotBlank")
     public void testValidation_blankPassword_violationReported() {
         CreateUserRequest request = new CreateUserRequest(
                 "user@example.com", "validlogin", "", null
@@ -103,7 +103,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("FT-006: пароль короче 6 символов — нарушение ограничения @Size(min=6)")
+    @DisplayName("FT-006: пароль короче 6 символов - нарушение ограничения @Size(min=6)")
     public void testValidation_tooShortPassword_violationReported() {
         CreateUserRequest request = new CreateUserRequest(
                 "user@example.com", "validlogin", "123", null
@@ -120,7 +120,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("FT-006: некорректный email — нарушение ограничения @Email")
+    @DisplayName("FT-006: некорректный email - нарушение ограничения @Email")
     public void testValidation_invalidEmail_violationReported() {
         CreateUserRequest request = new CreateUserRequest(
                 "not-an-email", "validlogin", "password123", null
@@ -137,7 +137,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("FT-006: пустой email — нарушение ограничения @NotBlank")
+    @DisplayName("FT-006: пустой email - нарушение ограничения @NotBlank")
     public void testValidation_blankEmail_violationReported() {
         CreateUserRequest request = new CreateUserRequest(
                 "", "validlogin", "password123", null
@@ -154,7 +154,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("FT-006: все поля пустые — нарушения на каждом обязательном поле")
+    @DisplayName("FT-006: все поля пустые - нарушения на каждом обязательном поле")
     public void testValidation_allBlank_multipleViolations() {
         CreateUserRequest request = new CreateUserRequest("", "", "", null);
 
@@ -165,7 +165,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("FT-006: корректные данные — нарушений нет, пользователь создаётся")
+    @DisplayName("FT-006: корректные данные - нарушений нет, пользователь создаётся")
     public void testValidation_validData_noViolations() {
         CreateUserRequest request = new CreateUserRequest(
                 "user@example.com", "validlogin", "password123", null
@@ -195,7 +195,7 @@ public class UserServiceTest {
     // ========================
 
     @Test
-    @DisplayName("getUserById: пользователь найден — возвращает Optional с данными")
+    @DisplayName("getUserById: пользователь найден - возвращает Optional с данными")
     public void testGetUserById_existingUser_returnsUser() {
         User user = User.builder().id("u1").email("a@b.com").login("aaa")
                 .passwordHash("h").roles(Set.of("USER")).createdAt(Instant.now()).build();
@@ -208,7 +208,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("getUserById: пользователь не найден — возвращает пустой Optional")
+    @DisplayName("getUserById: пользователь не найден - возвращает пустой Optional")
     public void testGetUserById_notExisting_returnsEmpty() {
         when(userRepository.findById("missing")).thenReturn(Optional.empty());
 
@@ -218,7 +218,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("deleteUser: пользователь существует — успешно удаляется")
+    @DisplayName("deleteUser: пользователь существует - успешно удаляется")
     public void testDeleteUser_existingUser_deleted() {
         when(userRepository.existsById("u1")).thenReturn(true);
         doNothing().when(userRepository).deleteById("u1");
@@ -229,7 +229,7 @@ public class UserServiceTest {
     }
 
     @Test
-    @DisplayName("deleteUser: пользователь не найден — бросает IllegalArgumentException")
+    @DisplayName("deleteUser: пользователь не найден - бросает IllegalArgumentException")
     public void testDeleteUser_notExisting_throwsException() {
         when(userRepository.existsById("missing")).thenReturn(false);
 

@@ -5,13 +5,13 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("FT-001/FT-002/FT-003/FT-004 — Выделение методов из Swagger")
+@DisplayName("FT-001/FT-002/FT-003/FT-004 - Выделение методов из Swagger")
 public class SwaggerMethodExtractionTest {
 
     private final SwaggerService swaggerService = new SwaggerService(null, null, null, null);
 
     @Test
-    @DisplayName("FT-001: валидный OpenAPI — извлекаются все методы")
+    @DisplayName("FT-001: валидный OpenAPI - извлекаются все методы")
     public void testExtractMethods_validSwagger_returnsAllMethods() {
         String swagger = """
                 {
@@ -35,7 +35,7 @@ public class SwaggerMethodExtractionTest {
         assertFalse(result.isEmpty(), "Результат не должен быть пустым");
         assertTrue(result.contains("/users"), "Должен содержать /users");
         assertTrue(result.contains("/users/{id}"), "Должен содержать /users/{id}");
-        // Проверяем что дубликатов нет — каждый метод встречается ровно один раз
+        // Проверяем что дубликатов нет - каждый метод встречается ровно один раз
         long getCount = result.lines().filter(l -> l.startsWith("GET /users:")).count();
         long postCount = result.lines().filter(l -> l.startsWith("POST /users:")).count();
         assertEquals(1, getCount, "GET /users должен быть ровно 1 раз");
@@ -43,7 +43,7 @@ public class SwaggerMethodExtractionTest {
     }
 
     @Test
-    @DisplayName("FT-002: пустой paths — NullPointerException не должен выбрасываться")
+    @DisplayName("FT-002: пустой paths - NullPointerException не должен выбрасываться")
     public void testExtractMethods_emptyPaths_doesNotCrash() {
         String swagger = """
                 {
@@ -60,7 +60,7 @@ public class SwaggerMethodExtractionTest {
     }
 
     @Test
-    @DisplayName("FT-003: чтение валидного JSON — ключевые поля присутствуют в результате")
+    @DisplayName("FT-003: чтение валидного JSON - ключевые поля присутствуют в результате")
     public void testReadSwagger_validJson_keyFieldsPresent() {
         String swagger = """
                 {
@@ -82,7 +82,7 @@ public class SwaggerMethodExtractionTest {
     }
 
     @Test
-    @DisplayName("FT-004: повреждённый JSON — не должно быть неконтролируемого NPE")
+    @DisplayName("FT-004: повреждённый JSON - не должно быть неконтролируемого NPE")
     public void testReadSwagger_invalidJson_doesNotCrash() {
         String brokenSwagger = "{ this is not valid JSON !!!";
 

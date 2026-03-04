@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-@DisplayName("FT-007/FT-008 — Векторизация запросов и Swagger документов")
+@DisplayName("FT-007/FT-008 - Векторизация запросов и Swagger документов")
 @ExtendWith(MockitoExtension.class)
 public class VectorStorageServiceTest {
 
@@ -29,9 +29,9 @@ public class VectorStorageServiceTest {
     @InjectMocks
     private VectorStorageService vectorStorageService;
 
-    // FT-007: векторизация запроса — search возвращает непустой результат
+    // FT-007: векторизация запроса - search возвращает непустой результат
     @Test
-    @DisplayName("FT-007: векторизация запроса — поиск возвращает результат с documentId")
+    @DisplayName("FT-007: векторизация запроса - поиск возвращает результат с documentId")
     public void testSearch_withQuery_returnsPresent() {
         TextSegment segment = TextSegment.from("GET /users: List users",
                 Metadata.from(Map.of("document-id", "doc-1", "user-id", "user-1")));
@@ -48,9 +48,9 @@ public class VectorStorageServiceTest {
         assertNotNull(result.getContent(), "Содержимое не должно быть null");
     }
 
-    // FT-007: повторный вызов с тем же запросом — стабильный результат
+    // FT-007: повторный вызов с тем же запросом - стабильный результат
     @Test
-    @DisplayName("FT-007: повторный вызов поиска — результат стабилен")
+    @DisplayName("FT-007: повторный вызов поиска - результат стабилен")
     public void testSearch_repeatedCall_stableResult() {
         TextSegment segment = TextSegment.from("POST /orders: Create order",
                 Metadata.from(Map.of("document-id", "doc-2")));
@@ -68,9 +68,9 @@ public class VectorStorageServiceTest {
                 "Повторный вызов должен возвращать тот же статус present");
     }
 
-    // FT-007: когда ничего не найдено — present=false, не падает
+    // FT-007: когда ничего не найдено - present=false, не падает
     @Test
-    @DisplayName("FT-007: поиск не нашёл результатов — возвращает present=false без исключений")
+    @DisplayName("FT-007: поиск не нашёл результатов - возвращает present=false без исключений")
     public void testSearch_notFound_returnsPresentFalse() {
         when(embeddingService.search(anyString())).thenReturn(Optional.empty());
 
@@ -81,9 +81,9 @@ public class VectorStorageServiceTest {
         assertNull(result.getDocumentId(), "documentId должен быть null");
     }
 
-    // FT-008: сохранение документа с метаданными — возвращает documentId
+    // FT-008: сохранение документа с метаданными - возвращает documentId
     @Test
-    @DisplayName("FT-008: сохранение Swagger с метаданными — возвращает непустой documentId")
+    @DisplayName("FT-008: сохранение Swagger с метаданными - возвращает непустой documentId")
     public void testSaveDocument_withMetadata_returnsDocumentId() {
         String content = "GET /users: List users\nPOST /users: Create user";
         Map<String, String> metadata = Map.of("user_id", "user-1", "swagger_summary", content);
@@ -117,7 +117,7 @@ public class VectorStorageServiceTest {
 
     // FT-008: удаление документа из векторного хранилища
     @Test
-    @DisplayName("FT-008: удаление документа из векторного хранилища — вызывается EmbeddingService.deleteById")
+    @DisplayName("FT-008: удаление документа из векторного хранилища - вызывается EmbeddingService.deleteById")
     public void testDeleteById_callsEmbeddingService() {
         doNothing().when(embeddingService).deleteById("doc-1");
 

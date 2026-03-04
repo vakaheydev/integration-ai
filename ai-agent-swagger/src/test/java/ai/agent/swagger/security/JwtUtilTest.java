@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("IT-007/IT-008/SEC-001/SEC-002 — Авторизация и валидация JWT")
+@DisplayName("IT-007/IT-008/SEC-001/SEC-002 - Авторизация и валидация JWT")
 public class JwtUtilTest {
 
     private JwtUtil jwtUtil;
@@ -44,7 +44,7 @@ public class JwtUtilTest {
     }
 
     @Test
-    @DisplayName("SEC-002: невалидный токен — validateToken возвращает false")
+    @DisplayName("SEC-002: невалидный токен - validateToken возвращает false")
     public void testValidateToken_fakeToken_returnsFalse() {
         boolean valid = jwtUtil.validateToken("this.is.not.a.valid.jwt.token");
 
@@ -60,13 +60,13 @@ public class JwtUtilTest {
     }
 
     @Test
-    @DisplayName("SEC-001: пустая строка — validateToken возвращает false")
+    @DisplayName("SEC-001: пустая строка - validateToken возвращает false")
     public void testValidateToken_emptyString_returnsFalse() {
         assertFalse(jwtUtil.validateToken(""), "Пустой токен не должен быть валидным");
     }
 
     @Test
-    @DisplayName("Секрет короче 32 байт — должно бросить IllegalArgumentException при создании")
+    @DisplayName("Секрет короче 32 байт - должно бросить IllegalArgumentException при создании")
     public void testJwtUtil_shortSecret_throwsException() {
         assertThrows(IllegalArgumentException.class, () -> new JwtUtil("short", EXPIRATION_MS));
     }

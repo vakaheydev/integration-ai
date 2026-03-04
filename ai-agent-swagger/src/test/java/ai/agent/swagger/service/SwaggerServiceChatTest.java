@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-@DisplayName("IT-003/IT-004/IT-005/IT-006 — Анализ, кодогенерация и поиск по Swagger")
+@DisplayName("IT-003/IT-004/IT-005/IT-006 - Анализ, кодогенерация и поиск по Swagger")
 @ExtendWith(MockitoExtension.class)
 public class SwaggerServiceChatTest {
 
@@ -50,7 +50,7 @@ public class SwaggerServiceChatTest {
     }
 
     @Test
-    @DisplayName("IT-003: chatByDocumentId с ролью analytic — возвращает аналитический ответ")
+    @DisplayName("IT-003: chatByDocumentId с ролью analytic - возвращает аналитический ответ")
     public void testChatByDocumentId_analyticRole_returnsResponse() {
         when(documentStorageService.findById("doc-1")).thenReturn(Optional.of(testDoc));
         when(promptBuilderService.getDocumentChatAnalyze(anyString(), anyString(), anyString()))
@@ -68,7 +68,7 @@ public class SwaggerServiceChatTest {
     }
 
     @Test
-    @DisplayName("IT-004: chatByDocumentId с ролью programmer — возвращает ответ с кодом")
+    @DisplayName("IT-004: chatByDocumentId с ролью programmer - возвращает ответ с кодом")
     public void testChatByDocumentId_programmerRole_returnsCodeResponse() {
         when(documentStorageService.findById("doc-1")).thenReturn(Optional.of(testDoc));
         when(promptBuilderService.getDocumentChatCode(anyString(), anyString(), anyString()))
@@ -84,7 +84,7 @@ public class SwaggerServiceChatTest {
     }
 
     @Test
-    @DisplayName("IT-003/IT-004: неизвестная роль — бросает IllegalArgumentException")
+    @DisplayName("IT-003/IT-004: неизвестная роль - бросает IllegalArgumentException")
     public void testChatByDocumentId_unknownRole_throwsException() {
         when(documentStorageService.findById("doc-1")).thenReturn(Optional.of(testDoc));
 
@@ -93,7 +93,7 @@ public class SwaggerServiceChatTest {
     }
 
     @Test
-    @DisplayName("IT-003: документ не найден — бросает NoSuchElementException")
+    @DisplayName("IT-003: документ не найден - бросает NoSuchElementException")
     public void testChatByDocumentId_documentNotFound_throwsException() {
         when(documentStorageService.findById("missing")).thenReturn(Optional.empty());
 
@@ -102,7 +102,7 @@ public class SwaggerServiceChatTest {
     }
 
     @Test
-    @DisplayName("IT-005: search с userId — документ найден, возвращает present=true")
+    @DisplayName("IT-005: search с userId - документ найден, возвращает present=true")
     public void testSearch_withUserId_documentFound_returnsPresent() {
         SwaggerVectorSearchResponse vectorResponse = SwaggerVectorSearchResponse.builder()
                 .present(true).documentId("doc-1").build();
@@ -124,7 +124,7 @@ public class SwaggerServiceChatTest {
     }
 
     @Test
-    @DisplayName("IT-006: search с userId — документ не найден, возвращает present=false")
+    @DisplayName("IT-006: search с userId - документ не найден, возвращает present=false")
     public void testSearch_withUserId_notFound_returnsPresentFalse() {
         SwaggerVectorSearchResponse vectorResponse = SwaggerVectorSearchResponse.builder()
                 .present(false).build();
