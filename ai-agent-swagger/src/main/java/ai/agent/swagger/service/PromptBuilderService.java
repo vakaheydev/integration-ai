@@ -23,6 +23,10 @@ public class PromptBuilderService {
     }
 
     public String getVectorSearchNotFoundPrompt(String userPrompt) {
+        if (userPrompt == null || userPrompt.isBlank()) {
+            userPrompt = "empty prompt";
+        }
+
         String template = props.getActions().getVectorSearch().getNotFound();
         String prompt = replacePrompt(template, Map.of("userPrompt",  userPrompt));
         return getAnalystRolePrompt(prompt);

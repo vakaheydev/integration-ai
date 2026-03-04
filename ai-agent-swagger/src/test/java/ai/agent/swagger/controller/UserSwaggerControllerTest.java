@@ -20,7 +20,6 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -29,10 +28,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+
+import org.springframework.mock.web.MockPart;
 
 /**
  * IT-001 — Загрузка валидного Swagger через API
@@ -86,11 +88,11 @@ public class UserSwaggerControllerTest {
     // IT-002: GET /api/me/swagger/{id} — документ не найден → 404
     @Test
     @DisplayName("IT-002: документ не найден — возвращается 404")
-    @WithMockUser(roles = "USER")
     public void testGetDocument_notFound_returns404() throws Exception {
+        SecurityUser currentUser = mockUser("user-1", "USER");
         when(swaggerService.getSwaggerById("missing")).thenReturn(Optional.empty());
 
-        mockMvc.perform(get("/api/me/swagger/missing"))
+        mockMvc.perform(get("/api/me/swagger/missing").with(user(currentUser)))
                 .andExpect(status().isNotFound());
     }
 
@@ -111,8 +113,8 @@ public class UserSwaggerControllerTest {
     // IT-005: POST /api/me/swagger/search — найдено → возвращает результат
     @Test
     @DisplayName("IT-005: поиск — документ найден, возвращает present=true и ответ модели")
-    @WithMockUser(roles = "USER")
     public void testSearch_found_returnsResult() throws Exception {
+        SecurityUser currentUser = mockUser("user-1", "USER");
         SwaggerDocument doc = SwaggerDocument.builder()
                 .id("doc-1").userId("user-1").name("Test API").build();
         SwaggerSearchResult result = SwaggerSearchResult.builder()
@@ -121,6 +123,7 @@ public class UserSwaggerControllerTest {
         when(swaggerService.search(anyString(), anyString())).thenReturn(result);
 
         mockMvc.perform(post("/api/me/swagger/search")
+                        .with(user(currentUser))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("query", "user management"))))
                 .andExpect(status().isOk())
@@ -131,14 +134,15 @@ public class UserSwaggerControllerTest {
     // IT-006: POST /api/me/swagger/search — ничего не найдено → present=false
     @Test
     @DisplayName("IT-006: поиск — ничего не найдено, возвращает present=false")
-    @WithMockUser(roles = "USER")
     public void testSearch_notFound_returnsPresentFalse() throws Exception {
+        SecurityUser currentUser = mockUser("user-1", "USER");
         SwaggerSearchResult result = SwaggerSearchResult.builder()
                 .present(false).modelResponse("Документ не найден. Попробуйте другой запрос.").build();
 
         when(swaggerService.search(anyString(), anyString())).thenReturn(result);
 
         mockMvc.perform(post("/api/me/swagger/search")
+                        .with(user(currentUser))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(Map.of("query", "some unknown topic"))))
                 .andExpect(status().isOk())
@@ -166,14 +170,14 @@ public class UserSwaggerControllerTest {
     // GET /api/me/swagger — список документов текущего пользователя
     @Test
     @DisplayName("IT-002: GET /api/me/swagger — список всех документов текущего пользователя")
-    @WithMockUser(roles = "USER")
     public void testGetMyDocuments_returnsListForCurrentUser() throws Exception {
+        SecurityUser currentUser = mockUser("user-1", "USER");
         SwaggerDocument doc1 = SwaggerDocument.builder().id("d1").userId("user-1").name("API 1").build();
         SwaggerDocument doc2 = SwaggerDocument.builder().id("d2").userId("user-1").name("API 2").build();
 
-        when(swaggerService.getSwaggersByUserId(anyString())).thenReturn(List.of(doc1, doc2));
+        when(swaggerService.getSwaggersByUserId("user-1")).thenReturn(List.of(doc1, doc2));
 
-        mockMvc.perform(get("/api/me/swagger"))
+        mockMvc.perform(get("/api/me/swagger").with(user(currentUser)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(2));
     }
@@ -202,5 +206,48 @@ public class UserSwaggerControllerTest {
 
         mockMvc.perform(delete("/api/me/swagger/doc-2").with(user(currentUser)))
                 .andExpect(status().isForbidden());
+    }
+
+    // IT-001: POST /api/me/swagger/upload — валидный Swagger загружается успешно → 200
+    @Test
+    @DisplayName("IT-001: загрузка валидного Swagger — возвращается 200 с document_id и swagger_summary")
+    public void testUpload_validSwagger_returns200() throws Exception {
+        SecurityUser currentUser = mockUser("user-1", "USER");
+        String swaggerJson = """
+                {
+                  "openapi": "3.0.0",
+                  "info": { "title": "Test API", "version": "1.0" },
+                  "paths": {
+                    "/users": {
+                      "get": { "operationId": "getUsers", "description": "Get all users", "responses": {} }
+                    }
+                  }
+                }
+                """;
+
+        when(swaggerService.uploadSwagger(anyString(), eq("user-1"), eq("Test API")))
+                .thenReturn(Map.of("document_id", "doc-new-1", "swagger_summary", "GET /users: Get all users"));
+
+        mockMvc.perform(multipart("/api/me/swagger/upload")
+                        .file("file", swaggerJson.getBytes())
+                        .part(new MockPart("name", "Test API".getBytes()))
+                        .with(user(currentUser))
+                        .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.document_id").value("doc-new-1"))
+                .andExpect(jsonPath("$.swagger_summary").exists());
+    }
+
+    // IT-001: POST /api/me/swagger/upload без JWT → 401
+    @Test
+    @DisplayName("IT-001: загрузка без JWT — возвращается 401")
+    public void testUpload_noJwt_returns401() throws Exception {
+        String swaggerJson = "{}";
+
+        mockMvc.perform(multipart("/api/me/swagger/upload")
+                        .file("file", swaggerJson.getBytes())
+                        .part(new MockPart("name", "API".getBytes()))
+                        .contentType(MediaType.MULTIPART_FORM_DATA))
+                .andExpect(status().isUnauthorized());
     }
 }

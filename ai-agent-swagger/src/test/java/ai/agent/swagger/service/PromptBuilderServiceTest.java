@@ -82,7 +82,8 @@ public class PromptBuilderServiceTest {
             String prompt = promptBuilderService.getVectorSearchNotFoundPrompt(null);
             assertNotNull(prompt);
         } catch (Exception e) {
-            assertNotNull(e.getMessage());
+            e.printStackTrace();
+            fail("Метод не должен выбрасывать исключение при null-значении: " + e.getMessage());
         }
     }
 
