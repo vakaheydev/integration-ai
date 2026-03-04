@@ -75,9 +75,9 @@ public class UserSwaggerControllerTest {
                 .andExpect(jsonPath("$.name").value("My API"));
     }
 
-    // IT-002: GET /api/me/swagger/{id} — документ не найден → 404
+    // IT-002: GET /api/me/swagger/{id} - документ не найден → 404
     @Test
-    @DisplayName("IT-002: документ не найден — возвращается 404")
+    @DisplayName("IT-002: документ не найден - возвращается 404")
     public void testGetDocument_notFound_returns404() throws Exception {
         SecurityUser currentUser = mockUser("user-1", "USER");
         when(swaggerService.getSwaggerById("missing")).thenReturn(Optional.empty());
@@ -86,9 +86,9 @@ public class UserSwaggerControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    // IT-002: GET /api/me/swagger/{id} — чужой документ → 403
+    // IT-002: GET /api/me/swagger/{id} - чужой документ → 403
     @Test
-    @DisplayName("IT-002: попытка получить чужой документ — возвращается 403")
+    @DisplayName("IT-002: попытка получить чужой документ - возвращается 403")
     public void testGetDocument_otherUsersDoc_returns403() throws Exception {
         SecurityUser currentUser = mockUser("user-1", "USER");
         SwaggerDocument doc = SwaggerDocument.builder()
@@ -100,9 +100,9 @@ public class UserSwaggerControllerTest {
                 .andExpect(status().isForbidden());
     }
 
-    // IT-005: POST /api/me/swagger/search — найдено → возвращает результат
+    // IT-005: POST /api/me/swagger/search - найдено → возвращает результат
     @Test
-    @DisplayName("IT-005: поиск — документ найден, возвращает present=true и ответ модели")
+    @DisplayName("IT-005: поиск - документ найден, возвращает present=true и ответ модели")
     public void testSearch_found_returnsResult() throws Exception {
         SecurityUser currentUser = mockUser("user-1", "USER");
         SwaggerDocument doc = SwaggerDocument.builder()
@@ -121,9 +121,9 @@ public class UserSwaggerControllerTest {
                 .andExpect(jsonPath("$.modelResponse").exists());
     }
 
-    // IT-006: POST /api/me/swagger/search — ничего не найдено → present=false
+    // IT-006: POST /api/me/swagger/search - ничего не найдено → present=false
     @Test
-    @DisplayName("IT-006: поиск — ничего не найдено, возвращает present=false")
+    @DisplayName("IT-006: поиск - ничего не найдено, возвращает present=false")
     public void testSearch_notFound_returnsPresentFalse() throws Exception {
         SecurityUser currentUser = mockUser("user-1", "USER");
         SwaggerSearchResult result = SwaggerSearchResult.builder()
@@ -141,7 +141,7 @@ public class UserSwaggerControllerTest {
 
     // SEC-001: запрос без JWT → 401
     @Test
-    @DisplayName("SEC-001: GET без JWT — возвращается 401")
+    @DisplayName("SEC-001: GET без JWT - возвращается 401")
     public void testGetDocument_noJwt_returns401() throws Exception {
         mockMvc.perform(get("/api/me/swagger/doc-1"))
                 .andExpect(status().isUnauthorized());
@@ -149,7 +149,7 @@ public class UserSwaggerControllerTest {
 
     // SEC-001: поиск без JWT → 401
     @Test
-    @DisplayName("SEC-001: POST /search без JWT — возвращается 401")
+    @DisplayName("SEC-001: POST /search без JWT - возвращается 401")
     public void testSearch_noJwt_returns401() throws Exception {
         mockMvc.perform(post("/api/me/swagger/search")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -157,9 +157,9 @@ public class UserSwaggerControllerTest {
                 .andExpect(status().isUnauthorized());
     }
 
-    // GET /api/me/swagger — список документов текущего пользователя
+    // GET /api/me/swagger - список документов текущего пользователя
     @Test
-    @DisplayName("IT-002: GET /api/me/swagger — список всех документов текущего пользователя")
+    @DisplayName("IT-002: GET /api/me/swagger - список всех документов текущего пользователя")
     public void testGetMyDocuments_returnsListForCurrentUser() throws Exception {
         SecurityUser currentUser = mockUser("user-1", "USER");
         SwaggerDocument doc1 = SwaggerDocument.builder().id("d1").userId("user-1").name("API 1").build();
@@ -172,9 +172,9 @@ public class UserSwaggerControllerTest {
                 .andExpect(jsonPath("$.length()").value(2));
     }
 
-    // DELETE /api/me/swagger/{id} — успешное удаление своего документа
+    // DELETE /api/me/swagger/{id} - успешное удаление своего документа
     @Test
-    @DisplayName("IT-001: удаление своего документа — возвращается 204 No Content")
+    @DisplayName("IT-001: удаление своего документа - возвращается 204 No Content")
     public void testDeleteDocument_own_returns204() throws Exception {
         SecurityUser currentUser = mockUser("user-1", "USER");
         SwaggerDocument doc = SwaggerDocument.builder().id("doc-1").userId("user-1").name("API").build();
@@ -185,9 +185,9 @@ public class UserSwaggerControllerTest {
                 .andExpect(status().isNoContent());
     }
 
-    // DELETE /api/me/swagger/{id} — чужой документ → 403
+    // DELETE /api/me/swagger/{id} - чужой документ → 403
     @Test
-    @DisplayName("SEC-003: удаление чужого документа — возвращается 403")
+    @DisplayName("SEC-003: удаление чужого документа - возвращается 403")
     public void testDeleteDocument_otherUser_returns403() throws Exception {
         SecurityUser currentUser = mockUser("user-1", "USER");
         SwaggerDocument doc = SwaggerDocument.builder().id("doc-2").userId("other-user").name("API").build();
@@ -198,9 +198,9 @@ public class UserSwaggerControllerTest {
                 .andExpect(status().isForbidden());
     }
 
-    // IT-001: POST /api/me/swagger/upload — валидный Swagger загружается успешно → 200
+    // IT-001: POST /api/me/swagger/upload - валидный Swagger загружается успешно → 200
     @Test
-    @DisplayName("IT-001: загрузка валидного Swagger — возвращается 200 с document_id и swagger_summary")
+    @DisplayName("IT-001: загрузка валидного Swagger - возвращается 200 с document_id и swagger_summary")
     public void testUpload_validSwagger_returns200() throws Exception {
         SecurityUser currentUser = mockUser("user-1", "USER");
         String swaggerJson = """
@@ -230,7 +230,7 @@ public class UserSwaggerControllerTest {
 
     // IT-001: POST /api/me/swagger/upload без JWT → 401
     @Test
-    @DisplayName("IT-001: загрузка без JWT — возвращается 401")
+    @DisplayName("IT-001: загрузка без JWT - возвращается 401")
     public void testUpload_noJwt_returns401() throws Exception {
         String swaggerJson = "{}";
 

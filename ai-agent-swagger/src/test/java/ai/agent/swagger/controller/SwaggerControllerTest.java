@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@DisplayName("IT-001/IT-002/SEC-001/SEC-003 — Контроллер /api/admin/swagger")
+@DisplayName("IT-001/IT-002/SEC-001/SEC-003 - Контроллер /api/admin/swagger")
 @Import(MockServicesConfig.class)
 @WebMvcTest(value = SwaggerController.class, excludeAutoConfiguration = {
         MongoAutoConfiguration.class,
@@ -48,9 +48,9 @@ public class SwaggerControllerTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // IT-002: GET /api/admin/swagger/{id} — ADMIN получает документ
+    // IT-002: GET /api/admin/swagger/{id} - ADMIN получает документ
     @Test
-    @DisplayName("IT-002: ADMIN получает документ по ID — возвращается 200 с данными")
+    @DisplayName("IT-002: ADMIN получает документ по ID - возвращается 200 с данными")
     @WithMockUser(roles = "ADMIN")
     public void testGetDocument_admin_returnsDocument() throws Exception {
         SwaggerDocument doc = SwaggerDocument.builder()
@@ -64,9 +64,9 @@ public class SwaggerControllerTest {
                 .andExpect(jsonPath("$.name").value("Admin API"));
     }
 
-    // IT-002: GET /api/admin/swagger/{id} — документ не найден → 404
+    // IT-002: GET /api/admin/swagger/{id} - документ не найден → 404
     @Test
-    @DisplayName("IT-002: документ не найден — возвращается 404")
+    @DisplayName("IT-002: документ не найден - возвращается 404")
     @WithMockUser(roles = "ADMIN")
     public void testGetDocument_notFound_returns404() throws Exception {
         when(swaggerService.getSwaggerById("missing")).thenReturn(Optional.empty());
@@ -75,9 +75,9 @@ public class SwaggerControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    // IT-002: GET /api/admin/swagger/user/{userId} — список документов пользователя
+    // IT-002: GET /api/admin/swagger/user/{userId} - список документов пользователя
     @Test
-    @DisplayName("IT-002: ADMIN получает список документов пользователя — возвращается список")
+    @DisplayName("IT-002: ADMIN получает список документов пользователя - возвращается список")
     @WithMockUser(roles = "ADMIN")
     public void testGetDocumentsByUser_found_returnsList() throws Exception {
         SwaggerDocument doc = SwaggerDocument.builder().id("d1").userId("u1").name("API 1").build();
@@ -89,9 +89,9 @@ public class SwaggerControllerTest {
                 .andExpect(jsonPath("$.length()").value(1));
     }
 
-    // IT-002: GET /api/admin/swagger/user/{userId} — пользователь не имеет документов → 404
+    // IT-002: GET /api/admin/swagger/user/{userId} - пользователь не имеет документов → 404
     @Test
-    @DisplayName("IT-002: у пользователя нет документов — возвращается 404")
+    @DisplayName("IT-002: у пользователя нет документов - возвращается 404")
     @WithMockUser(roles = "ADMIN")
     public void testGetDocumentsByUser_empty_returns404() throws Exception {
         when(swaggerService.getSwaggersByUserId("u-none")).thenReturn(List.of());
@@ -100,9 +100,9 @@ public class SwaggerControllerTest {
                 .andExpect(status().isNotFound());
     }
 
-    // IT-001: DELETE /api/admin/swagger/{id} — ADMIN удаляет документ → 204
+    // IT-001: DELETE /api/admin/swagger/{id} - ADMIN удаляет документ → 204
     @Test
-    @DisplayName("IT-001: ADMIN удаляет документ — возвращается 204 No Content")
+    @DisplayName("IT-001: ADMIN удаляет документ - возвращается 204 No Content")
     @WithMockUser(roles = "ADMIN")
     public void testDeleteDocument_admin_returns204() throws Exception {
         mockMvc.perform(delete("/api/admin/swagger/doc-1"))
@@ -111,7 +111,7 @@ public class SwaggerControllerTest {
 
     // SEC-001: GET /api/admin/swagger/{id} без JWT → 401
     @Test
-    @DisplayName("SEC-001: GET /api/admin/swagger/{id} без JWT — возвращается 401")
+    @DisplayName("SEC-001: GET /api/admin/swagger/{id} без JWT - возвращается 401")
     public void testGetDocument_noJwt_returns401() throws Exception {
         mockMvc.perform(get("/api/admin/swagger/doc-1"))
                 .andExpect(status().isUnauthorized());
@@ -119,7 +119,7 @@ public class SwaggerControllerTest {
 
     // SEC-001: POST /api/admin/swagger/search без JWT → 401
     @Test
-    @DisplayName("SEC-001: POST /api/admin/swagger/search без JWT — возвращается 401")
+    @DisplayName("SEC-001: POST /api/admin/swagger/search без JWT - возвращается 401")
     public void testSearch_noJwt_returns401() throws Exception {
         mockMvc.perform(post("/api/admin/swagger/search")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -129,7 +129,7 @@ public class SwaggerControllerTest {
 
     // SEC-003: GET /api/admin/swagger/{id} с ролью USER → 403
     @Test
-    @DisplayName("SEC-003: GET /api/admin/swagger/{id} с ролью USER — возвращается 403")
+    @DisplayName("SEC-003: GET /api/admin/swagger/{id} с ролью USER - возвращается 403")
     @WithMockUser(roles = "USER")
     public void testGetDocument_userRole_returns403() throws Exception {
         mockMvc.perform(get("/api/admin/swagger/doc-1"))
@@ -138,7 +138,7 @@ public class SwaggerControllerTest {
 
     // SEC-003: DELETE /api/admin/swagger/{id} с ролью USER → 403
     @Test
-    @DisplayName("SEC-003: DELETE /api/admin/swagger/{id} с ролью USER — возвращается 403")
+    @DisplayName("SEC-003: DELETE /api/admin/swagger/{id} с ролью USER - возвращается 403")
     @WithMockUser(roles = "USER")
     public void testDeleteDocument_userRole_returns403() throws Exception {
         mockMvc.perform(delete("/api/admin/swagger/doc-1"))

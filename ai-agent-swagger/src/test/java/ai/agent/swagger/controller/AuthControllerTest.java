@@ -57,7 +57,7 @@ public class AuthControllerTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    @DisplayName("IT-007: корректные учётные данные — возвращается JWT-токен")
+    @DisplayName("IT-007: корректные учётные данные - возвращается JWT-токен")
     public void testLogin_validCredentials_returnsJwt() throws Exception {
         SecurityUser securityUser = new SecurityUser(
                 "user-id-1", "testuser", "hashed",
@@ -77,7 +77,7 @@ public class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("IT-008: несуществующие учётные данные — возвращается 401")
+    @DisplayName("IT-008: несуществующие учётные данные - возвращается 401")
     public void testLogin_invalidCredentials_returns401() throws Exception {
         when(authenticationManager.authenticate(any()))
                 .thenThrow(new BadCredentialsException("Bad credentials"));
@@ -90,7 +90,7 @@ public class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("IT-008: пустое тело запроса — возвращается 400 Bad Request")
+    @DisplayName("IT-008: пустое тело запроса - возвращается 400 Bad Request")
     public void testLogin_emptyBody_returns400() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

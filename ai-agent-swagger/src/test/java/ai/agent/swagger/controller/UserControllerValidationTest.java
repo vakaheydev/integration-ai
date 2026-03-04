@@ -44,7 +44,7 @@ public class UserControllerValidationTest {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
-    @DisplayName("FT-006: пустой логин — возвращается 400 Bad Request")
+    @DisplayName("FT-006: пустой логин - возвращается 400 Bad Request")
     @WithMockUser(roles = "ADMIN")
     public void testCreateUser_blankLogin_returns400() throws Exception {
         mockMvc.perform(post("/api/admin/user")
@@ -58,7 +58,7 @@ public class UserControllerValidationTest {
     }
 
     @Test
-    @DisplayName("FT-006: логин короче 3 символов — возвращается 400 Bad Request")
+    @DisplayName("FT-006: логин короче 3 символов - возвращается 400 Bad Request")
     @WithMockUser(roles = "ADMIN")
     public void testCreateUser_tooShortLogin_returns400() throws Exception {
         mockMvc.perform(post("/api/admin/user")
@@ -72,7 +72,7 @@ public class UserControllerValidationTest {
     }
 
     @Test
-    @DisplayName("FT-006: пустой пароль — возвращается 400 Bad Request")
+    @DisplayName("FT-006: пустой пароль - возвращается 400 Bad Request")
     @WithMockUser(roles = "ADMIN")
     public void testCreateUser_blankPassword_returns400() throws Exception {
         mockMvc.perform(post("/api/admin/user")
@@ -86,7 +86,7 @@ public class UserControllerValidationTest {
     }
 
     @Test
-    @DisplayName("FT-006: пароль короче 6 символов — возвращается 400 Bad Request")
+    @DisplayName("FT-006: пароль короче 6 символов - возвращается 400 Bad Request")
     @WithMockUser(roles = "ADMIN")
     public void testCreateUser_tooShortPassword_returns400() throws Exception {
         mockMvc.perform(post("/api/admin/user")
@@ -100,7 +100,7 @@ public class UserControllerValidationTest {
     }
 
     @Test
-    @DisplayName("FT-006: некорректный email — возвращается 400 Bad Request")
+    @DisplayName("FT-006: некорректный email - возвращается 400 Bad Request")
     @WithMockUser(roles = "ADMIN")
     public void testCreateUser_invalidEmail_returns400() throws Exception {
         mockMvc.perform(post("/api/admin/user")
@@ -114,7 +114,7 @@ public class UserControllerValidationTest {
     }
 
     @Test
-    @DisplayName("FT-006: пустое тело запроса — возвращается 400 Bad Request")
+    @DisplayName("FT-006: пустое тело запроса - возвращается 400 Bad Request")
     @WithMockUser(roles = "ADMIN")
     public void testCreateUser_emptyBody_returns400() throws Exception {
         mockMvc.perform(post("/api/admin/user")
