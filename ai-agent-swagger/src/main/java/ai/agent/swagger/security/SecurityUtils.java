@@ -9,8 +9,13 @@ import org.springframework.stereotype.Component;
 public class SecurityUtils {
     public static SecurityUser currentUser() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (principal instanceof UserDetails) {
-            return (SecurityUser) principal;
+        if (principal instanceof SecurityUser securityUser) {
+            return securityUser;
+        }
+        if (principal instanceof UserDetails userDetails) {
+            // fallback для тестов с @WithMockUser — возвращаем SecurityUser с id = username
+            return new SecurityUser(userDetails.getUsername(), userDetails.getUsername(),
+                    "", userDetails.getAuthorities());
         }
         throw new IllegalStateException("No authenticated user found");
     }

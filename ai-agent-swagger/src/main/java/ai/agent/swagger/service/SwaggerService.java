@@ -8,6 +8,7 @@ import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
 import io.swagger.v3.parser.OpenAPIV3Parser;
 import lombok.extern.slf4j.Slf4j;
+import com.fasterxml.jackson.core.JsonParseException;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -147,6 +148,10 @@ public class SwaggerService {
 
     public String resolveSwaggerMethodSummary(String swaggerContent) {
         OpenAPI openAPI = new OpenAPIV3Parser().readContents(swaggerContent).getOpenAPI();
+        if (openAPI == null) {
+            throw new IllegalArgumentException("Failed to parse OpenAPI content");
+        }
+
         StringBuilder sb = new StringBuilder();
         for (String path : openAPI.getPaths().keySet()) {
             PathItem pathItem = openAPI.getPaths().get(path);
