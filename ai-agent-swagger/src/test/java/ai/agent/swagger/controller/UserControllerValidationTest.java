@@ -25,7 +25,7 @@ import java.util.Map;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@DisplayName("FT-006 — Валидация данных пользователя при регистрации (некорректные данные)")
+@DisplayName("FT-006 - Валидация данных пользователя при регистрации (некорректные данные)")
 @Import(MockServicesConfig.class)
 @WebMvcTest(value = UserController.class, excludeAutoConfiguration = {
         MongoAutoConfiguration.class,

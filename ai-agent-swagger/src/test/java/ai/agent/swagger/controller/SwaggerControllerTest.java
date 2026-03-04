@@ -29,12 +29,6 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * IT-001 — Загрузка валидного Swagger через /api/admin/swagger (ADMIN)
- * IT-002 — Получение Swagger по ID (ADMIN)
- * SEC-001 — Доступ к /api/admin/swagger без JWT
- * SEC-003 — Доступ к /api/admin/swagger с ролью USER → 403
- */
 @DisplayName("IT-001/IT-002/SEC-001/SEC-003 — Контроллер /api/admin/swagger")
 @Import(MockServicesConfig.class)
 @WebMvcTest(value = SwaggerController.class, excludeAutoConfiguration = {

@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-@DisplayName("IT-007/IT-008/SEC-001/SEC-002 — Авторизация и валидация JWT")
+@DisplayName("IT-007/IT-008/SEC-001/SEC-002 - Авторизация и валидация JWT")
 public class JwtUtilTest {
 
     private JwtUtil jwtUtil;

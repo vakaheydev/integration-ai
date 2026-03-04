@@ -34,11 +34,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * IT-007 — Авторизация существующего пользователя
- * IT-008 — Авторизация несуществующего пользователя
- */
-@DisplayName("IT-007/IT-008 — Авторизация пользователей")
+@DisplayName("IT-007/IT-008 - Авторизация пользователей")
 @Import(MockServicesConfig.class)
 @WebMvcTest(value = AuthController.class, excludeAutoConfiguration = {
         MongoAutoConfiguration.class,

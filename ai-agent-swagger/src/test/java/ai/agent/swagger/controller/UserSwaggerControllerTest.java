@@ -36,16 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.springframework.mock.web.MockPart;
 
-/**
- * IT-001 — Загрузка валидного Swagger через API
- * IT-002 — Получение Swagger по ID
- * IT-005 — Семантический поиск существующего Swagger
- * IT-006 — Семантический поиск несуществующего Swagger
- * SEC-001 — Доступ без JWT
- * SEC-002 — Доступ с невалидным JWT
- * SEC-003 — Доступ с JWT без нужных прав
- */
-@DisplayName("IT-001/IT-002/IT-005/IT-006/SEC-001/SEC-003 — Контроллер /api/me/swagger")
+@DisplayName("IT-001/IT-002/IT-005/IT-006/SEC-001/SEC-003 - Контроллер /api/me/swagger")
 @Import(MockServicesConfig.class)
 @WebMvcTest(value = UserSwaggerController.class, excludeAutoConfiguration = {
         MongoAutoConfiguration.class,
@@ -69,7 +60,6 @@ public class UserSwaggerControllerTest {
                 List.of(new SimpleGrantedAuthority("ROLE_" + role)));
     }
 
-    // IT-002: GET /api/me/swagger/{id} — авторизованный пользователь получает свой документ
     @Test
     @DisplayName("IT-002: авторизованный пользователь получает свой документ по ID")
     public void testGetDocument_authorized_returnsDocument() throws Exception {
