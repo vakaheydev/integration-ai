@@ -53,12 +53,14 @@ public class UserSwaggerController {
     public ResponseEntity<?> query(@RequestBody Map<String, String> request) {
         try {
             String query = request.get("query");
+            if (query == null || query.isBlank()) {
+                return ResponseEntity.badRequest().body(Map.of("status", "400", "error", "Query is required"));
+            }
             SwaggerSearchResult result = swaggerService.search(query, SecurityUtils.currentUser().getId());
-            // TODO: Need to bugfix filter in embedding store
-//            if (result.isPresent() && result.getDocument().getUserId() != null
-//                    && !result.getDocument().getUserId().equals(SecurityUtils.currentUser().getId())) {
-//                return ResponseEntity.status(403).body(Map.of("status", "403", "error", "Access denied"));
-//            }
+            if (result.isPresent() && result.getDocument().getUserId() != null
+                    && !result.getDocument().getUserId().equals(SecurityUtils.currentUser().getId())) {
+                return ResponseEntity.status(403).body(Map.of("status", "403", "error", "Access denied"));
+            }
             return ResponseEntity.ok(result);
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build();
