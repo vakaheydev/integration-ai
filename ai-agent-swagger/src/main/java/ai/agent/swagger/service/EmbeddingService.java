@@ -11,7 +11,6 @@ import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.chroma.ChromaEmbeddingStore;
 import dev.langchain4j.store.embedding.filter.Filter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.json.JsonWriter;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -76,12 +75,11 @@ public class EmbeddingService {
     }
 
     public Optional<EmbeddingMatch<TextSegment>> search(String searchQuery, String userId) {
-        // TODO: Bugfix - filter doesn't work, need to investigate why
-//        Filter filter = metadataKey("user-id").isEqualTo(userId);
+        Filter filter = metadataKey("user_id").isEqualTo(userId);
 
         EmbeddingSearchRequest embeddingSearchRequest = EmbeddingSearchRequest
                 .builder()
-//                .filter(filter)
+                .filter(filter)
                 .queryEmbedding(embed(searchQuery))
                 .build();
 
@@ -97,7 +95,7 @@ public class EmbeddingService {
     }
 
     public String searchByDocumentId(String documentId) {
-        Filter filter = metadataKey("document-id").isEqualTo(documentId);
+        Filter filter = metadataKey("document_id").isEqualTo(documentId);
 
         EmbeddingSearchRequest embeddingSearchRequest1 = EmbeddingSearchRequest
                 .builder()
@@ -111,7 +109,7 @@ public class EmbeddingService {
     }
 
     public List<String> searchByUserId(String userId) {
-        Filter filter = metadataKey("user-id").isEqualTo(userId);
+        Filter filter = metadataKey("user_id").isEqualTo(userId);
 
         EmbeddingSearchRequest embeddingSearchRequest1 = EmbeddingSearchRequest
                 .builder()
