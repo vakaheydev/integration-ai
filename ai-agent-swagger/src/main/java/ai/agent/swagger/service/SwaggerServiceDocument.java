@@ -2,7 +2,6 @@ package ai.agent.swagger.service;
 
 import ai.agent.swagger.config.CacheConfig;
 import ai.agent.swagger.model.SwaggerDocument;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.Operation;
 import io.swagger.v3.oas.models.PathItem;
@@ -151,11 +150,12 @@ public class SwaggerServiceDocument {
                 operation.getRequestBody().getContent().forEach((mediaType, content) -> {
                     sb.append("  Content-Type: ").append(mediaType).append("\n");
                     if (content.getSchema() != null) {
-                        try {
-                            String schemaJson = new ObjectMapper().writeValueAsString(content.getSchema());
-                            sb.append("  Schema: ").append(schemaJson).append("\n");
-                        } catch (Exception e) {
-                            log.debug("Could not serialize schema", e);
+                        String ref = content.getSchema().get$ref();
+                        if (ref != null) {
+                            String schemaName = resolveSchemaName(ref);
+                            sb.append("  Schema: ").append(schemaName);
+                        } else if (content.getSchema().getType() != null) {
+                            sb.append("  Schema type: ").append(content.getSchema().getType()).append("\n");
                         }
                     }
                 });
@@ -223,7 +223,7 @@ public class SwaggerServiceDocument {
                         sb.append(" (").append(propSchema.getType()).append(")");
                     }
                     if (propSchema.get$ref() != null) {
-                        sb.append(" ($ref: ").append(propSchema.get$ref()).append(")");
+                        sb.append(" (ref: ").append(resolveSchemaName(propSchema.get$ref())).append(")");
                     }
                     if (propSchema.getDescription() != null) {
                         sb.append(": ").append(propSchema.getDescription());
@@ -267,8 +267,6 @@ public class SwaggerServiceDocument {
     }
 
     private String resolveSchemaName(String schemaPath) {
-        // "#/components/schemas/Pet" -> "Pet"
-        // "Pet" -> "Pet"
         if (schemaPath.contains("/")) {
             return schemaPath.substring(schemaPath.lastIndexOf('/') + 1);
         }

@@ -53,6 +53,9 @@ public class SwaggerPromptsProperties {
             private String retryAnalyzeTaskGeneral;
             private String handleTaskAnalysisGeneral;
             private String retryHandleTaskAnalysisGeneral;
+            // after-error variants
+            private String handleTaskAnalysisAfterError;
+            private String handleTaskAnalysisAfterErrorGeneral;
             // chat
             private String taskChat;
         }

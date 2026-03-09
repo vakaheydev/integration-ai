@@ -41,6 +41,7 @@ public class SwaggerTools {
             SwaggerDocument document = getDocumentForCurrentUser(documentId);
             log.info("Retrieving swagger method for documentId {}, apiPath {}, httpMethod {}", documentId, apiPath, httpMethod);
             return swaggerServiceDocument.extractMethod(document.getContent(), apiPath, httpMethod)
+                    .map(method -> "Method definition for " + httpMethod.toUpperCase() + " " + apiPath + ":\n" + method)
                     .orElse("Method " + httpMethod.toUpperCase() + " " + apiPath + " not found in document " + documentId);
         } catch (IllegalArgumentException | SecurityException e) {
             log.warn("getSwaggerMethod failed: {}", e.getMessage());
@@ -55,6 +56,7 @@ public class SwaggerTools {
             SwaggerDocument document = getDocumentForCurrentUser(documentId);
             log.info("Retrieving swagger schema for documentId {}, schemaPath {}", documentId, schemaPath);
             return swaggerServiceDocument.extractSchema(document.getContent(), schemaPath)
+                    .map(schema -> "Schema definition for '" + schemaPath + "':\n" + schema)
                     .orElse("Schema '" + schemaPath + "' not found in document " + documentId);
         } catch (IllegalArgumentException | SecurityException e) {
             log.warn("getSwaggerSchema failed: {}", e.getMessage());

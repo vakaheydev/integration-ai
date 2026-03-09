@@ -54,6 +54,7 @@ prompts:
         Analyze the task and produce a short execution plan for another AI that will perform it.
         Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method names, field names, document IDs) MUST be explicitly included in the plan steps.
         Answer on language of task_description.
 
         Output format (strictly follow this structure):
@@ -97,6 +98,7 @@ prompts:
         Produce a corrected short execution plan for another AI that will perform the task.
         Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method names, field names, document IDs) MUST be explicitly included in the plan steps.
         Answer on language of task_description.
 
         Output format (strictly follow this structure):
@@ -234,6 +236,7 @@ prompts:
         No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
         If no tool is needed for a step, write "none".
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
         Answer on language of task_description.
 
         Output format (strictly follow this structure):
@@ -265,6 +268,7 @@ prompts:
         No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
         Produce a corrected short execution plan for another AI that will perform the task.
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
         Answer on language of task_description.
 
         Output format (strictly follow this structure):
@@ -321,7 +325,58 @@ prompts:
         1) Return only the final result of the task execution.
         2) Do NOT include the plan, step numbers, tool names, feedback, or any meta-information.
         3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
-      task-chat: |
+      handle-task-analysis-after-error: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to execute this task failed with the error in PREVIOUS_ERROR.
+        Re-execute the task strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        The result must directly solve the task described in TASK_DESCRIPTION.
+        Answer on language of task_description.
+
+        STRICT OUTPUT RULES:
+        1) Return only the final result of the task execution.
+        2) Do NOT include the plan, step numbers, tool names, or any meta-information.
+        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+      handle-task-analysis-after-error-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to execute this task failed with the error in PREVIOUS_ERROR.
+        Re-execute the task strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        No API document is attached — use only general knowledge and available tools.
+        The result must directly solve the task described in TASK_DESCRIPTION.
+        Answer on language of task_description.
+
+        STRICT OUTPUT RULES:
+        1) Return only the final result of the task execution.
+        2) Do NOT include the plan, step numbers, tool names, or any meta-information.
+        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+      task-chat: |        
         <<<TASK_CONTEXT>>>
         ID: ${taskId}
         Type: ${taskType}

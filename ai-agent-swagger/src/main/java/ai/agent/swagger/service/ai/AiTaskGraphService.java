@@ -2,6 +2,7 @@ package ai.agent.swagger.service.ai;
 
 import ai.agent.swagger.model.SwaggerDocument;
 import ai.agent.swagger.model.Task;
+import ai.agent.swagger.model.TaskStatus;
 import ai.agent.swagger.service.PromptBuilderService;
 import ai.agent.swagger.service.SwaggerServiceDocument;
 import ai.agent.swagger.service.TaskService;
@@ -27,13 +28,15 @@ class TaskState extends AgentState {
     public static final String FEEDBACK_SOLUTION = "feedback_solution";
     public static final String RETRY_CNT = "retry_cnt";
     public static final String RESULT = "result";
+    public static final String FAILED = "failed";
 
     public static final Map<String, Channel<?>> SCHEMA = Map.of(
             TASK_ANALYSIS, Channels.base(() -> ""),
             FEEDBACK, Channels.base(() -> ""),
             FEEDBACK_SOLUTION, Channels.base(() -> ""),
             RETRY_CNT, Channels.base(() -> 0),
-            RESULT, Channels.base(() -> "")
+            RESULT, Channels.base(() -> ""),
+            FAILED, Channels.base(() -> "")
     );
 
     public TaskState(Map<String, Object> initData) {
@@ -59,6 +62,12 @@ class TaskState extends AgentState {
     public Optional<String> result() {
         return value(RESULT);
     }
+
+    /** Возвращает текст ошибки, или null если ошибки не было */
+    public String failedMessage() {
+        String val = (String) value(FAILED).orElse("");
+        return val.isBlank() ? null : val;
+    }
 }
 
 @Slf4j
@@ -83,7 +92,7 @@ public class AiTaskGraphService {
         String availableTools = toolDescriptionProvider.getToolsDescription();
         boolean hasDocument = task.getDocumentId() != null && !task.getDocumentId().isBlank();
 
-        var graph = new StateGraph<>(SwaggerChatState.SCHEMA, TaskState::new)
+        var graph = new StateGraph<>(TaskState.SCHEMA, TaskState::new)
                 .addNode("analyze_task", node_async(state -> {
                     int stageId = taskService.changeCurrentStage(task.getId(), "Analyzing task");
                     String prompt;
@@ -95,7 +104,7 @@ public class AiTaskGraphService {
                         prompt = promptBuilderService.getHandleTaskAnalyzeGeneralPrompt(task.getDescription(), availableTools);
                     }
                     String answer = aiChatService.chat(prompt);
-                    taskService.changeStageDescription(task.getId(), stageId, "AI response: " + answer);
+                    taskService.changeStage(task.getId(), stageId, "AI response: " + answer, TaskStatus.COMPLETED);
                     return Map.of(TaskState.TASK_ANALYSIS, answer);
                 }))
 
@@ -112,99 +121,140 @@ public class AiTaskGraphService {
                         prompt = promptBuilderService.getHandleTaskRetryGeneralPrompt(task.getDescription(), feedback, availableTools);
                     }
                     String answer = aiChatService.chat(prompt);
-                    taskService.changeStageDescription(task.getId(), stageId, "AI response: " + answer);
+                    taskService.changeStage(task.getId(), stageId, "AI response: " + answer, TaskStatus.COMPLETED);
                     return Map.of(TaskState.TASK_ANALYSIS, answer, TaskState.RETRY_CNT, retryCnt);
                 }))
 
                 .addNode("review_task_analysis", node_async(state -> {
                     int stageId = taskService.changeCurrentStage(task.getId(), "Review task analysis");
-
                     String analysis = state.taskAnalysis().orElse("");
                     String prompt = promptBuilderService.getHandleTaskReviewAnalysisPrompt(task.getDescription(), analysis);
                     String feedback = aiChatService.chat(prompt);
-                    taskService.changeStageDescription(task.getId(), stageId, "AI response: " + feedback);
-
+                    taskService.changeStage(task.getId(), stageId, "AI response: " + feedback, TaskStatus.COMPLETED);
                     return Map.of(TaskState.FEEDBACK, feedback);
                 }))
 
                 .addNode("review_task_analysis_solution", node_async(state -> {
                     int stageId = taskService.changeCurrentStage(task.getId(), "Review task analysis solution");
-
                     String feedback = state.feedback().orElse("");
                     String prompt = promptBuilderService.getHandleTaskReviewSolutionPrompt(feedback);
                     String solution = aiChatService.chat(prompt);
-                    taskService.changeStageDescription(task.getId(), stageId, "AI response: " + solution);
-
+                    taskService.changeStage(task.getId(), stageId, "AI response: " + solution, TaskStatus.COMPLETED);
                     return Map.of(TaskState.FEEDBACK_SOLUTION, solution);
                 }))
 
                 .addNode("handle_analysis", node_async(state -> {
                     int stageId = taskService.changeCurrentStage(task.getId(), "Execute task according to analysis");
-
-                    String analysis = state.taskAnalysis().orElse("");
-                    String prompt;
-                    if (hasDocument) {
-                        prompt = promptBuilderService.getHandleTaskExecutePrompt(task.getDescription(), task.getDocumentId(), analysis);
-                    } else {
-                        prompt = promptBuilderService.getHandleTaskExecuteGeneralPrompt(task.getDescription(), analysis);
+                    try {
+                        String analysis = state.taskAnalysis().orElse("");
+                        String prompt;
+                        if (hasDocument) {
+                            prompt = promptBuilderService.getHandleTaskExecutePrompt(task.getDescription(), task.getDocumentId(), analysis);
+                        } else {
+                            prompt = promptBuilderService.getHandleTaskExecuteGeneralPrompt(task.getDescription(), analysis);
+                        }
+                        String result = aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+                        taskService.changeStage(task.getId(), stageId, "AI response: " + result, TaskStatus.COMPLETED);
+                        return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, 0, TaskState.FAILED, "");
+                    } catch (Exception e) {
+                        log.error("Error during task execution, will trigger retry", e);
+                        String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+                        taskService.changeStage(task.getId(), stageId, "Error: " + errorMsg, TaskStatus.FAILED);
+                        return Map.of(TaskState.RESULT, "", TaskState.FAILED, errorMsg);
                     }
-                    String result = aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+                }))
 
-                    taskService.changeStageDescription(task.getId(), stageId, "AI response: " + result);
-
-                    return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, 0);
+                .addNode("handle_analysis_after_error", node_async(state -> {
+                    int stageId = taskService.changeCurrentStage(task.getId(), "Retry execution after error");
+                    int retryCnt = state.retryCnt() + 1;
+                    try {
+                        String analysis = state.taskAnalysis().orElse("");
+                        String errorMessage = state.failedMessage();
+                        String prompt;
+                        if (hasDocument) {
+                            prompt = promptBuilderService.getHandleTaskExecuteAfterErrorPrompt(task.getDescription(), task.getDocumentId(), analysis, errorMessage);
+                        } else {
+                            prompt = promptBuilderService.getHandleTaskExecuteAfterErrorGeneralPrompt(task.getDescription(), analysis, errorMessage);
+                        }
+                        String result = aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+                        taskService.changeStage(task.getId(), stageId, "AI response: " + result, TaskStatus.COMPLETED);
+                        return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, retryCnt, TaskState.FAILED, "");
+                    } catch (Exception e) {
+                        log.error("Error during handle_analysis_after_error", e);
+                        String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+                        taskService.changeStage(task.getId(), stageId, "Error: " + errorMsg, TaskStatus.FAILED);
+                        return Map.of(TaskState.RESULT, "", TaskState.RETRY_CNT, retryCnt, TaskState.FAILED, errorMsg);
+                    }
                 }))
 
                 .addNode("retry_handle_analysis", node_async(state -> {
                     int stageId = taskService.changeCurrentStage(task.getId(), "Retry execute task according to analysis");
-
                     int retryCnt = state.retryCnt() + 1;
-                    String analysis = state.taskAnalysis().orElse("");
-                    String feedback = state.feedback().orElse("");
-                    String prompt;
-                    if (hasDocument) {
-                        prompt = promptBuilderService.getRetryHandleTaskAnalysisPrompt(task.getDescription(), task.getDocumentId(), analysis, feedback);
-                    } else {
-                        prompt = promptBuilderService.getRetryHandleTaskAnalysisGeneralPrompt(task.getDescription(), analysis, feedback);
+                    try {
+                        String analysis = state.taskAnalysis().orElse("");
+                        String feedback = state.feedback().orElse("");
+                        String prompt;
+                        if (hasDocument) {
+                            prompt = promptBuilderService.getRetryHandleTaskAnalysisPrompt(task.getDescription(), task.getDocumentId(), analysis, feedback);
+                        } else {
+                            prompt = promptBuilderService.getRetryHandleTaskAnalysisGeneralPrompt(task.getDescription(), analysis, feedback);
+                        }
+                        String result = aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+                        taskService.changeStage(task.getId(), stageId, "AI response: " + result, TaskStatus.COMPLETED);
+                        return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, retryCnt, TaskState.FAILED, "");
+                    } catch (Exception e) {
+                        log.error("Error during retry_handle_analysis", e);
+                        String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+                        taskService.changeStage(task.getId(), stageId, "Error: " + errorMsg, TaskStatus.FAILED);
+                        return Map.of(TaskState.RESULT, "", TaskState.RETRY_CNT, retryCnt, TaskState.FAILED, errorMsg);
                     }
-                    String result = aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+                }))
 
-                    taskService.changeStageDescription(task.getId(), stageId, "AI response: " + result);
-
-                    return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, retryCnt);
+                .addNode("retry_handle_analysis_after_error", node_async(state -> {
+                    int stageId = taskService.changeCurrentStage(task.getId(), "Retry execution after error (from review)");
+                    int retryCnt = state.retryCnt() + 1;
+                    try {
+                        String analysis = state.taskAnalysis().orElse("");
+                        String errorMessage = state.failedMessage();
+                        String prompt;
+                        if (hasDocument) {
+                            prompt = promptBuilderService.getHandleTaskExecuteAfterErrorPrompt(task.getDescription(), task.getDocumentId(), analysis, errorMessage);
+                        } else {
+                            prompt = promptBuilderService.getHandleTaskExecuteAfterErrorGeneralPrompt(task.getDescription(), analysis, errorMessage);
+                        }
+                        String result = aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+                        taskService.changeStage(task.getId(), stageId, "AI response: " + result, TaskStatus.COMPLETED);
+                        return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, retryCnt, TaskState.FAILED, "");
+                    } catch (Exception e) {
+                        log.error("Error during retry_handle_analysis_after_error", e);
+                        String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
+                        taskService.changeStage(task.getId(), stageId, "Error: " + errorMsg, TaskStatus.FAILED);
+                        return Map.of(TaskState.RESULT, "", TaskState.RETRY_CNT, retryCnt, TaskState.FAILED, errorMsg);
+                    }
                 }))
 
                 .addNode("review_handle_analysis", node_async(state -> {
                     int stageId = taskService.changeCurrentStage(task.getId(), "Reviewing execution of task according to analysis");
-
                     String result = state.result().orElse("");
                     String prompt = promptBuilderService.getReviewHandleAnalysisPrompt(task.getDescription(), result);
                     String feedback = aiChatService.chat(prompt);
-
-                    taskService.changeStageDescription(task.getId(), stageId, "AI response: " + feedback);
-
+                    taskService.changeStage(task.getId(), stageId, "AI response: " + feedback, TaskStatus.COMPLETED);
                     return Map.of(TaskState.FEEDBACK, feedback);
                 }))
 
                 .addNode("review_handle_analysis_solution", node_async(state -> {
                     int stageId = taskService.changeCurrentStage(task.getId(), "Making solution for review of execution of task according to analysis");
-
                     String feedback = state.feedback().orElse("");
                     String prompt = promptBuilderService.getReviewHandleAnalysisSolutionPrompt(feedback);
                     String solution = aiChatService.chat(prompt);
-
-                    taskService.changeStageDescription(task.getId(), stageId, "AI response: " + solution);
-
+                    taskService.changeStage(task.getId(), stageId, "AI response: " + solution, TaskStatus.COMPLETED);
                     return Map.of(TaskState.FEEDBACK_SOLUTION, solution);
                 }))
 
                 .addNode("handle_result", node_async(state -> {
                     int stageId = taskService.changeCurrentStage(task.getId(), "Handling final result");
-
                     String result = state.result().orElse("");
-
-                    taskService.changeStageDescription(task.getId(), stageId, "Final result: " + result);
-
+                    taskService.changeStage(task.getId(), stageId, "Final result: " + result, TaskStatus.COMPLETED);
                     return Map.of(TaskState.RESULT, result);
                 }))
 
@@ -233,10 +283,35 @@ public class AiTaskGraphService {
                         )
                 )
 
-                .addEdge("handle_analysis", "review_handle_analysis")
-                .addEdge("review_handle_analysis", "review_handle_analysis_solution")
+                .addConditionalEdges(
+                        "handle_analysis",
+                        edge_async(state -> {
+                            String error = state.failedMessage();
+                            if (error == null || error.isBlank()) return "ok";
+                            if (state.retryCnt() > 2) throw new IllegalStateException("Task execution failed after maximum retries for task id=" + task.getId() + ". Last error: " + error);
+                            return "error";
+                        }),
+                        Map.of(
+                                "ok", "review_handle_analysis",
+                                "error", "handle_analysis_after_error"
+                        )
+                )
 
-                .addEdge("retry_handle_analysis", "review_handle_analysis")
+                .addConditionalEdges(
+                        "handle_analysis_after_error",
+                        edge_async(state -> {
+                            String error = state.failedMessage();
+                            if (error == null || error.isBlank()) return "ok";
+                            if (state.retryCnt() > 2) throw new IllegalStateException("Task execution failed after maximum retries for task id=" + task.getId() + ". Last error: " + error);
+                            return "error";
+                        }),
+                        Map.of(
+                                "ok", "review_handle_analysis",
+                                "error", "handle_analysis_after_error"
+                        )
+                )
+
+                .addEdge("review_handle_analysis", "review_handle_analysis_solution")
 
                 .addConditionalEdges(
                         "review_handle_analysis_solution",
@@ -247,14 +322,40 @@ public class AiTaskGraphService {
                                 return "approved";
                             }
                             String feedbackSolution = state.feedbackSolution().orElse("no");
-                            if ("yes".equalsIgnoreCase(feedbackSolution)) {
-                                return "approved";
-                            }
+                            if ("yes".equalsIgnoreCase(feedbackSolution)) return "approved";
                             return "retry";
                         }),
                         Map.of(
                                 "approved", "handle_result",
                                 "retry", "retry_handle_analysis"
+                        )
+                )
+
+                .addConditionalEdges(
+                        "retry_handle_analysis",
+                        edge_async(state -> {
+                            String error = state.failedMessage();
+                            if (error == null || error.isBlank()) return "ok";
+                            if (state.retryCnt() > 2) throw new IllegalStateException("Task execution failed after maximum retries for task id=" + task.getId() + ". Last error: " + error);
+                            return "error";
+                        }),
+                        Map.of(
+                                "ok", "review_handle_analysis",
+                                "error", "retry_handle_analysis_after_error"
+                        )
+                )
+
+                .addConditionalEdges(
+                        "retry_handle_analysis_after_error",
+                        edge_async(state -> {
+                            String error = state.failedMessage();
+                            if (error == null || error.isBlank()) return "ok";
+                            if (state.retryCnt() > 2) throw new IllegalStateException("Task execution failed after maximum retries for task id=" + task.getId() + ". Last error: " + error);
+                            return "error";
+                        }),
+                        Map.of(
+                                "ok", "review_handle_analysis",
+                                "error", "retry_handle_analysis_after_error"
                         )
                 )
 
@@ -268,3 +369,8 @@ public class AiTaskGraphService {
         );
     }
 }
+
+
+
+
+

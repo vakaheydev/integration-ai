@@ -54,7 +54,7 @@ public class TaskProcessorService {
     }
 
     private void applyResult(Task task, TaskResult taskResult) {
-        taskService.changeCurrentStage(task.getId(), "Finishing task", "Reviewing task result");
+        int stageId = taskService.changeCurrentStage(task.getId(), "Finishing task", "Reviewing task result");
 
         TaskStatus status = taskResult.getStatus();
         log.info("Task id={} finished with status={}", task.getId(), status);
@@ -72,6 +72,7 @@ public class TaskProcessorService {
             reviewResponse = "Failed to get review response: " + e.getMessage();
         }
 
+        taskService.changeStage(task.getId(), stageId, null, TaskStatus.COMPLETED);
         taskService.changeCurrentStage(task.getId(), null);
 
         switch (status) {

@@ -141,6 +141,7 @@ public class TaskService {
                 .id(newStageId)
                 .name(stageName)
                 .description(description)
+                .status(TaskStatus.RUNNING)
                 .instantStart(Instant.now())
                 .build();
         task.setCurrentStage(newStage);
@@ -150,24 +151,30 @@ public class TaskService {
         return newStageId;
     }
 
-    public void changeStageDescription(String taskId, int stageId, String description) {
+    public void changeStage(String taskId, int stageId, String description, TaskStatus status) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
 
         Stage currentStage = task.getCurrentStage();
         if (currentStage != null && currentStage.getId() == stageId) {
-            task.setCurrentStage(currentStage.toBuilder().description(description).build());
+            Stage.StageBuilder builder = currentStage.toBuilder();
+            if (description != null) builder.description(description);
+            if (status != null) builder.status(status);
+            task.setCurrentStage(builder.build());
             taskRepository.save(task);
-            log.debug("Updated description for currentStage id={} of task id={}", stageId, taskId);
+            log.debug("Updated currentStage id={} of task id={}", stageId, taskId);
             return;
         }
 
         List<Stage> history = task.getStageHistory();
         for (int i = 0; i < history.size(); i++) {
             if (history.get(i).getId() == stageId) {
-                history.set(i, history.get(i).toBuilder().description(description).build());
+                Stage.StageBuilder builder = history.get(i).toBuilder();
+                if (description != null) builder.description(description);
+                if (status != null) builder.status(status);
+                history.set(i, builder.build());
                 taskRepository.save(task);
-                log.debug("Updated description for stageHistory id={} of task id={}", stageId, taskId);
+                log.debug("Updated stageHistory id={} of task id={}", stageId, taskId);
                 return;
             }
         }

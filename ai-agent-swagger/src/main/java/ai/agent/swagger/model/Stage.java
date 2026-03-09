@@ -16,6 +16,8 @@ public class Stage {
     private int id;
     private String name;
     private String description;
+    @Builder.Default
+    private TaskStatus status = TaskStatus.CREATED;
     private Instant instantStart;
     private Instant instantEnd;
 

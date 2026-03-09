@@ -62,6 +62,18 @@ public class PromptBuilderService {
         return getAnalystRolePrompt(prompt);
     }
 
+    public String getHandleTaskExecuteAfterErrorPrompt(String taskDescription, String documentId, String analysis, String errorMessage) {
+        String template = props.getActions().getHandleTask().getHandleTaskAnalysisAfterError();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "analysis", analysis, "errorMessage", errorMessage != null ? errorMessage : "unknown error"));
+        return getAnalystRolePrompt(prompt);
+    }
+
+    public String getHandleTaskExecuteAfterErrorGeneralPrompt(String taskDescription, String analysis, String errorMessage) {
+        String template = props.getActions().getHandleTask().getHandleTaskAnalysisAfterErrorGeneral();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "analysis", analysis, "errorMessage", errorMessage != null ? errorMessage : "unknown error"));
+        return getAnalystRolePrompt(prompt);
+    }
+
     public String getReviewHandleAnalysisPrompt(String taskDescription, String taskResult) {
         String template = props.getActions().getHandleTask().getReviewHandleAnalysis();
         String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "taskResult", taskResult));
