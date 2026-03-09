@@ -1,8 +1,9 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box, Paper, Typography, IconButton, Chip, CircularProgress,
   Alert, Divider, Tooltip, Button, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, Select, MenuItem, FormControl, InputLabel,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon, Refresh as RefreshIcon, Assignment as AssignmentIcon,
@@ -10,11 +11,18 @@ import {
   PlayArrow as PlayArrowIcon, HourglassEmpty as HourglassIcon,
   Replay as ReloadIcon, Delete as DeleteIcon, ContentCopy as CopyIcon,
   ArrowUpward as ArrowUpIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon,
+  Send as SendIcon, Close as CloseIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { tasksApi } from '../api/tasksApi';
-import type { Task, TaskStage } from '../models/types';
+import { documentsApi } from '../api/documentsApi';
+import type { Task, TaskStage, SwaggerDocument } from '../models/types';
+
+interface TaskChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
 
 const POLL_INTERVAL = 1000;
 
@@ -74,6 +82,74 @@ function stageColor(stage: TaskStage) {
   return stageColorMap[stage.status] ?? stageColorMap.CREATED;
 }
 
+/**
+ * Предобрабатывает текст: заменяет "Название" на [Название](doc:id) если документ найден.
+ * Поддерживает все виды кавычек: "…", "…", «…», „…"
+ */
+// REMOVED: linkifyDocuments
+// REMOVED: makeDocLinkComponents
+
+interface SelectionPopup {
+  doc: SwaggerDocument;
+  x: number;
+  y: number;
+}
+
+/** Следит за выделением текста: если выделение не снято 0.5с — ищет документ */
+function useDocumentSelection(
+  documents: SwaggerDocument[],
+  onFound: (popup: SelectionPopup) => void,
+  onClear: () => void,
+) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onFoundRef = useRef(onFound);
+  const onClearRef = useRef(onClear);
+  // Обновляем ref при каждом рендере без пересоздания эффекта
+  useEffect(() => { onFoundRef.current = onFound; }, [onFound]);
+  useEffect(() => { onClearRef.current = onClear; }, [onClear]);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+
+      const sel = window.getSelection();
+      const text = sel?.toString().trim() ?? '';
+
+      if (!text || text.length < 2) {
+        onClearRef.current();
+        return;
+      }
+
+      timerRef.current = setTimeout(() => {
+        const currentSel = window.getSelection();
+        const currentText = currentSel?.toString().trim() ?? '';
+        if (!currentText || currentText !== text) return;
+
+        const doc = documents.find(
+          d =>
+            (d.name ?? '').toLowerCase() === currentText.toLowerCase() ||
+            d.id.toLowerCase() === currentText.toLowerCase()
+        );
+
+        if (doc && currentSel && currentSel.rangeCount > 0) {
+          const range = currentSel.getRangeAt(0);
+          const rect = range.getBoundingClientRect();
+          onFoundRef.current({ doc, x: rect.left + rect.width / 2, y: rect.bottom + 8 });
+        } else {
+          onClearRef.current();
+        }
+      }, 500);
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [documents]); // только documents — не пересоздаём при смене колбэков
+}
+
 export const TaskPage: React.FC = () => {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
@@ -89,27 +165,89 @@ export const TaskPage: React.FC = () => {
   const [historyExpanded, setHistoryExpanded] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Chat state
+  const [chatMessages, setChatMessages] = useState<TaskChatMessage[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [chatLoading, setChatLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [chatRole, setChatRole] = useState<string>('analytic');
+  const [chatRoleDialogOpen, setChatRoleDialogOpen] = useState(false);
+  const [tempChatRole, setTempChatRole] = useState<string>('analytic');
+  const [chatExpanded, setChatExpanded] = useState(true);
+  const chatContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Documents for linked text
+  const [documents, setDocuments] = useState<SwaggerDocument[]>([]);
+
+  // Selection popup
+  const [selectionPopup, setSelectionPopup] = useState<SelectionPopup | null>(null);
+  const [selectionPopupExpanded, setSelectionPopupExpanded] = useState(false);
+  const popupRef = useRef<HTMLDivElement | null>(null);
+
+  const handlePopupExpand = () => setSelectionPopupExpanded(v => !v);
+
+  const closePopup = useCallback(() => {
+    setSelectionPopup(null);
+    setSelectionPopupExpanded(false);
+  }, []);
+
+  const closePopupRef = useRef(closePopup);
+  useEffect(() => { closePopupRef.current = closePopup; }, [closePopup]);
+
+  // Закрываем по mousedown вне попапа — вешаем один раз
+  useEffect(() => {
+    const handleMouseDown = (e: MouseEvent) => {
+      if (!popupRef.current) return;
+      if (!popupRef.current.contains(e.target as Node)) {
+        closePopupRef.current();
+      }
+    };
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, []);
+
+  useDocumentSelection(
+    documents,
+    (popup) => { setSelectionPopup(popup); setSelectionPopupExpanded(false); },
+    () => { /* не закрываем по selectionchange — только mousedown вне или крестик */ },
+  );
+
   const isTerminal = (status?: string) => status === 'COMPLETED' || status === 'FAILED';
 
-  const fetchTask = async (silent = false) => {
+  const fetchTask = useCallback(async (silent = false) => {
     if (!taskId) return;
     if (!silent) setLoading(true);
     try {
       const t = await tasksApi.getTask(taskId);
       setTask(t);
       setError(null);
-      if (isTerminal(t.status)) { clearInterval(intervalRef.current!); intervalRef.current = null; }
+      if (isTerminal(t.status)) {
+        if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error loading task');
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, [taskId]);
 
   useEffect(() => {
-    fetchTask();
-    intervalRef.current = setInterval(() => fetchTask(true), POLL_INTERVAL);
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    let cancelled = false;
+
+    const init = async () => {
+      if (cancelled) return;
+      await fetchTask();
+      if (cancelled) return;
+      documentsApi.getDocuments().then(docs => { if (!cancelled) setDocuments(docs); }).catch(() => {});
+      intervalRef.current = setInterval(() => fetchTask(true), POLL_INTERVAL);
+    };
+
+    init();
+
+    return () => {
+      cancelled = true;
+      if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+    };
   }, [taskId]);
 
   const handleReload = async () => {
@@ -140,6 +278,34 @@ export const TaskPage: React.FC = () => {
   const cfg = task
     ? (statusConfig[task.status] ?? { label: task.status, color: 'default' as const, icon: <ScheduleIcon fontSize="small" /> })
     : null;
+
+  const handleChatSend = async () => {
+    if (!chatInput.trim() || !taskId || chatLoading) return;
+    const userMsg: TaskChatMessage = { role: 'user', content: chatInput.trim() };
+    setChatMessages(prev => [...prev, userMsg]);
+    setChatInput('');
+    setChatLoading(true);
+    setChatError(null);
+    try {
+      const res = await tasksApi.chatWithTask(taskId, userMsg.content, chatRole);
+      const text =
+        res?.answer ??
+        res?.response ??
+        res?.text ??
+        res?.message ??
+        (typeof res === 'string' ? res : JSON.stringify(res));
+      setChatMessages(prev => [...prev, { role: 'assistant', content: text }]);
+    } catch (err: any) {
+      setChatError(err.response?.data?.message || 'Error sending message');
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => {
+        if (chatContainerRef.current) {
+          chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+  };
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', p: 3 }}>
@@ -173,6 +339,92 @@ export const TaskPage: React.FC = () => {
 
         {task && (
           <>
+            {/* ── Chat ── */}
+            <Paper elevation={2} sx={{ mb: 3 }}>
+              <Box
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, cursor: 'pointer', userSelect: 'none' }}
+                onClick={() => setChatExpanded(v => !v)}
+              >
+                <Typography variant="subtitle1" fontWeight="bold">Chat with AI about this task</Typography>
+                <IconButton size="small">{chatExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}</IconButton>
+              </Box>
+              {chatExpanded && (
+                <>
+                  <Divider />
+                  <Box ref={chatContainerRef} sx={{ px: 3, py: 2, maxHeight: 480, minHeight: 120, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    {chatMessages.length === 0 && (
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+                        Ask anything about this task...
+                      </Typography>
+                    )}
+                    {chatMessages.map((msg, idx) => (
+                      <Box key={idx} sx={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                        <Box sx={{
+                          maxWidth: '80%', px: 2, py: 1,
+                          borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                          bgcolor: msg.role === 'user' ? 'primary.main' : 'grey.100',
+                          color: msg.role === 'user' ? 'white' : 'text.primary',
+                        }}>
+                          {msg.role === 'assistant' ? (
+                            <Box sx={{ ...mdStyles, '& p': { mt: 0, mb: 0.5 }, fontSize: '0.875rem' }}>
+                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            </Box>
+                          ) : (
+                            <Typography variant="body2">{msg.content}</Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    ))}
+                    {chatLoading && (
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+                        <Box sx={{ px: 2, py: 1, borderRadius: '16px 16px 16px 4px', bgcolor: 'grey.100', display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <CircularProgress size={16} />
+                          <Typography variant="caption" color="text.secondary">Generating response...</Typography>
+                        </Box>
+                      </Box>
+                    )}
+                  </Box>
+                  <Divider />
+                  <Box sx={{ px: 3, py: 2 }}>
+                    {chatError && (
+                      <Alert severity="error" sx={{ mb: 1.5 }} onClose={() => setChatError(null)}>{chatError}</Alert>
+                    )}
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+                      <Tooltip title="Select role">
+                        <Button
+                          variant="contained"
+                          onClick={() => { setTempChatRole(chatRole); setChatRoleDialogOpen(true); }}
+                          disabled={chatLoading}
+                          sx={{ minWidth: 'auto', px: 1.5, height: '40px', flexShrink: 0 }}
+                        >
+                          <Typography variant="caption" fontWeight="bold">ROLE</Typography>
+                        </Button>
+                      </Tooltip>
+                      <TextField
+                        fullWidth
+                        multiline
+                        maxRows={4}
+                        size="small"
+                        placeholder="Type your message..."
+                        value={chatInput}
+                        onChange={e => setChatInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleChatSend();
+                          }
+                        }}
+                        disabled={chatLoading}
+                      />
+                      <IconButton color="primary" onClick={handleChatSend} disabled={!chatInput.trim() || chatLoading}>
+                        <SendIcon />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                </>
+              )}
+            </Paper>
+
             {/* ── Task info ── */}
             <Paper elevation={2} sx={{ mb: 3 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, py: 2, cursor: 'pointer', userSelect: 'none' }}
@@ -212,6 +464,33 @@ export const TaskPage: React.FC = () => {
                     <Divider sx={{ my: 2 }} />
                     <Typography variant="caption" color="text.secondary">Completed at</Typography>
                     <Typography variant="body2" sx={{ mt: 0.5 }}>{formatDateTime(task.completedDatetime)}</Typography>
+                  </>)}
+                  {task.documentId && (<>
+                    <Divider sx={{ my: 2 }} />
+                    <Typography variant="caption" color="text.secondary">Linked document</Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                      <Typography variant="body2">
+                        {documents.find(d => d.id === task.documentId)?.name ?? task.documentId}
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        id="task-info-doc-anchor"
+                        onMouseDown={e => e.stopPropagation()}
+                        onClick={(e) => {
+                          const doc = documents.find(d => d.id === task.documentId);
+                          if (doc) {
+                            const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                            setSelectionPopup({ doc, x: rect.left + rect.width / 2, y: rect.bottom + 8 });
+                            setSelectionPopupExpanded(false);
+                          } else {
+                            navigate(`/documents/${task.documentId}`);
+                          }
+                        }}
+                      >
+                        VIEW
+                      </Button>
+                    </Box>
                   </>)}
                 </Box>
               )}
@@ -399,6 +678,132 @@ export const TaskPage: React.FC = () => {
           <Button variant="contained" color="error" onClick={handleDelete}>Delete</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Chat role selection dialog */}
+      <Dialog
+        open={chatRoleDialogOpen}
+        onClose={() => setChatRoleDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { minHeight: '300px' } }}
+      >
+        <DialogTitle sx={{ fontSize: '1.25rem', py: 2.5 }}>Select Role</DialogTitle>
+        <DialogContent sx={{ pt: 3, pb: 4, minHeight: '180px' }}>
+          <FormControl fullWidth sx={{ mb: 3, mt: 1 }}>
+            <InputLabel id="chat-role-select-label" sx={{ fontSize: '1rem' }}>Role</InputLabel>
+            <Select
+              labelId="chat-role-select-label"
+              value={tempChatRole}
+              label="Role"
+              onChange={e => setTempChatRole(e.target.value)}
+              sx={{ minHeight: '56px', '& .MuiSelect-select': { py: 2, fontSize: '1rem' } }}
+            >
+              <MenuItem value="analytic" sx={{ py: 2, fontSize: '1rem' }}>Analyst (analytic)</MenuItem>
+              <MenuItem value="programmer" sx={{ py: 2, fontSize: '1rem' }}>Programmer (programmer)</MenuItem>
+            </Select>
+          </FormControl>
+          <Typography variant="body2" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+            Current role: <strong>{chatRole === 'analytic' ? 'Analyst' : 'Programmer'}</strong>
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
+          <Button onClick={() => setChatRoleDialogOpen(false)} sx={{ py: 1 }}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => { setChatRole(tempChatRole); setChatRoleDialogOpen(false); }}
+            sx={{ py: 1 }}
+          >
+            Apply
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Document selection popup */}
+      {selectionPopup && (
+        <Paper
+          ref={popupRef}
+          elevation={6}
+          sx={{
+            position: 'fixed',
+            top: selectionPopup.y,
+            left: selectionPopup.x,
+            transform: 'translateX(-50%)',
+            zIndex: 9999,
+            borderRadius: 2,
+            boxShadow: 6,
+            minWidth: 260,
+            maxWidth: 380,
+            overflow: 'hidden',
+          }}
+        >
+          {/* Header row */}
+          <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ flexGrow: 1, overflow: 'hidden' }}>
+              <Typography variant="caption" color="text.secondary" display="block">Document found</Typography>
+              <Typography variant="body2" fontWeight="bold" noWrap>
+                {selectionPopup.doc.name ?? selectionPopup.doc.id}
+              </Typography>
+            </Box>
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => {
+                const docId = selectionPopup.doc.id;
+                closePopup();
+                window.getSelection()?.removeAllRanges();
+                navigate(`/documents/${docId}`);
+              }}
+            >
+              Open
+            </Button>
+            <Tooltip title={selectionPopupExpanded ? 'Collapse' : 'Show details'}>
+              <IconButton size="small" onClick={handlePopupExpand}>
+                {selectionPopupExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Close">
+              <IconButton size="small" onClick={closePopup}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Box>
+
+          {/* Expanded details */}
+          {selectionPopupExpanded && (
+            <>
+              <Divider />
+              <Box sx={{ px: 2, py: 1.5, display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">Name</Typography>
+                  <Typography variant="body2" fontWeight="bold">{selectionPopup.doc.name ?? '—'}</Typography>
+                </Box>
+                <Box>
+                  <Typography variant="caption" color="text.secondary">ID</Typography>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', wordBreak: 'break-all' }}>
+                    {selectionPopup.doc.id}
+                  </Typography>
+                </Box>
+                {selectionPopup.doc.documentSummary && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Summary</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.25, maxHeight: 120, overflowY: 'auto', whiteSpace: 'pre-line', fontSize: '0.8rem' }}>
+                      {selectionPopup.doc.documentSummary}
+                    </Typography>
+                  </Box>
+                )}
+                {selectionPopup.doc.methodSummary && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Method summary</Typography>
+                    <Typography variant="body2" sx={{ mt: 0.25, maxHeight: 120, overflowY: 'auto', whiteSpace: 'pre-line', fontSize: '0.8rem' }}>
+                      {selectionPopup.doc.methodSummary}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </>
+          )}
+        </Paper>
+      )}
     </Box>
   );
 };

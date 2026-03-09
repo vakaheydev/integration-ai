@@ -73,5 +73,11 @@ export const tasksApi = {
   deleteTask: async (taskId: string): Promise<void> => {
     await apiClient.delete(`tasks/${taskId}`);
   },
+
+  // Chat with AI about a task
+  chatWithTask: async (taskId: string, query: string, role: string): Promise<any> => {
+    const response = await apiClient.post(`tasks/${taskId}/chat`, { query, role });
+    return response.data;
+  },
 };
 

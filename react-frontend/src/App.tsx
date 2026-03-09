@@ -5,6 +5,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { MainPage } from './pages/MainPage';
 import { LoginPage } from './pages/LoginPage';
 import { TaskPage } from './pages/TaskPage';
+import { DocumentPage } from './pages/DocumentPage';
 
 const theme = createTheme({
   palette: {
@@ -50,6 +51,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <TaskPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/documents/:documentId"
+              element={
+                <ProtectedRoute>
+                  <DocumentPage />
                 </ProtectedRoute>
               }
             />

@@ -5,7 +5,8 @@ export interface SwaggerDocument {
   name?: string;
   summary?: string;
   documentSummary?: string;
-  content?: string; // OpenAPI document content (.yaml or .json)
+  methodSummary?: string;
+  content?: string;
   userId?: string;
   uploadedAt?: string;
 }
