@@ -25,10 +25,12 @@ import {
   Description as DescriptionIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-
+  Add as AddIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { documentsApi } from '../api/documentsApi';
-import type { SwaggerDocument, ChatMessage } from '../models/types';
+import { tasksApi } from '../api/tasksApi';
+import type { SwaggerDocument, ChatMessage, TaskType } from '../models/types';
 import { ChatMessageItem } from '../components/ChatMessageItem';
 import { SwaggerUIViewer } from '../components/SwaggerUIViewer';
 
@@ -38,6 +40,7 @@ interface ChatInterfaceProps {
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }) => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,6 +50,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
   const [tempRole, setTempRole] = useState<string>('analytic');
   const [summaryExpanded, setSummaryExpanded] = useState(true);
   const [showSwaggerUI, setShowSwaggerUI] = useState(false);
+
+  // Task creation dialog
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskType, setTaskType] = useState<TaskType>('ANALYZE');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [taskCreating, setTaskCreating] = useState(false);
+  const [taskError, setTaskError] = useState<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Автопрокрутка к последнему сообщению
@@ -70,6 +81,26 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
   const handleRoleConfirm = () => {
     setRole(tempRole);
     setRoleDialogOpen(false);
+  };
+
+  const handleCreateTask = async () => {
+    if (!taskDescription.trim()) return;
+    setTaskCreating(true);
+    setTaskError(null);
+    try {
+      const task = await tasksApi.createTask(document.id, {
+        type: taskType,
+        description: taskDescription.trim(),
+      });
+      setTaskDialogOpen(false);
+      setTaskDescription('');
+      setTaskType('ANALYZE');
+      navigate(`/tasks/${task.id}`);
+    } catch (err: any) {
+      setTaskError(err.response?.data?.message || 'Error creating task');
+    } finally {
+      setTaskCreating(false);
+    }
   };
 
   const handleSend = async () => {
@@ -163,6 +194,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
               {showSwaggerUI ? 'Switch to Chat' : 'Switch to Swagger UI'}
             </Button>
           )}
+          <Tooltip title="Create task">
+            <IconButton
+              color="primary"
+              onClick={() => { setTaskDialogOpen(true); setTaskError(null); }}
+              size="small"
+              sx={{ border: '1px solid', borderColor: 'primary.main' }}
+            >
+              <AddIcon />
+            </IconButton>
+          </Tooltip>
           <Chip label="Active" color="success" size="small" />
         </Box>
 
@@ -336,7 +377,52 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
         </>
       )}
 
-      {/* Диалог выбора роли */}
+      {/* Task creation dialog */}
+      <Dialog
+        open={taskDialogOpen}
+        onClose={() => setTaskDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Create Task</DialogTitle>
+        <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {taskError && <Alert severity="error">{taskError}</Alert>}
+          <FormControl fullWidth sx={{ mt: 1 }}>
+            <InputLabel>Task type</InputLabel>
+            <Select
+              value={taskType}
+              label="Task type"
+              onChange={(e) => setTaskType(e.target.value as TaskType)}
+            >
+              <MenuItem value="ANALYZE">Analysis (ANALYZE)</MenuItem>
+              <MenuItem value="CODE">Code generation (CODE)</MenuItem>
+              <MenuItem value="TEST">Test generation (TEST)</MenuItem>
+            </Select>
+          </FormControl>
+          <TextField
+            label="Description"
+            multiline
+            rows={5}
+            fullWidth
+            value={taskDescription}
+            onChange={(e) => setTaskDescription(e.target.value)}
+            placeholder="Describe what you want the AI to do..."
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setTaskDialogOpen(false)} disabled={taskCreating}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateTask}
+            disabled={!taskDescription.trim() || taskCreating}
+            startIcon={taskCreating ? <CircularProgress size={16} /> : undefined}
+          >
+            {taskCreating ? 'Creating...' : 'Create task'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Role selection dialog */}
       <Dialog
         open={roleDialogOpen}
         onClose={handleRoleDialogClose}

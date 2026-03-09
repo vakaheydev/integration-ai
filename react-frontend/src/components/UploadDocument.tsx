@@ -4,11 +4,16 @@ import {
   Button,
   TextField,
   Typography,
-  Paper,
   CircularProgress,
   Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
-import { CloudUpload as CloudUploadIcon } from '@mui/icons-material';
+import { CloudUpload as CloudUploadIcon, Add as AddIcon } from '@mui/icons-material';
 import { documentsApi } from '../api/documentsApi';
 
 interface UploadDocumentProps {
@@ -16,22 +21,36 @@ interface UploadDocumentProps {
 }
 
 export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess }) => {
+  const [open, setOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [documentName, setDocumentName] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+
+  const handleOpen = () => {
+    setOpen(true);
+    setError(null);
+  };
+
+  const handleClose = () => {
+    if (loading) return;
+    setOpen(false);
+    setSelectedFile(null);
+    setDocumentName('');
+    setError(null);
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Проверка формата файла - поддерживаем JSON и YAML
       const isJson = file.type === 'application/json' || file.name.endsWith('.json');
       const isYaml = file.name.endsWith('.yml') || file.name.endsWith('.yaml');
-
       if (isJson || isYaml) {
         setSelectedFile(file);
         setError(null);
+        if (!documentName.trim()) {
+          setDocumentName(file.name.replace(/\.(json|yml|yaml)$/i, ''));
+        }
       } else {
         setError('Please select a JSON or YAML file (.json, .yml, .yaml)');
         setSelectedFile(null);
@@ -40,36 +59,18 @@ export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess 
   };
 
   const handleUpload = useCallback(async () => {
-    if (!selectedFile) {
-      setError('Please select a file');
-      return;
-    }
-
-    if (!documentName.trim()) {
-      setError('Please specify document name');
-      return;
-    }
+    if (!selectedFile) { setError('Please select a file'); return; }
+    if (!documentName.trim()) { setError('Please specify document name'); return; }
 
     setLoading(true);
     setError(null);
-    setSuccess(null);
 
     try {
       await documentsApi.uploadDocument(selectedFile, documentName.trim());
-      setSuccess('Document successfully uploaded!');
+      setOpen(false);
       setSelectedFile(null);
       setDocumentName('');
-
-      // Сброс input
-      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
-      if (fileInput) {
-        fileInput.value = '';
-      }
-
-      // Уведомляем родительский компонент
-      setTimeout(() => {
-        onUploadSuccess();
-      }, 1000);
+      onUploadSuccess();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error uploading document');
     } finally {
@@ -78,72 +79,76 @@ export const UploadDocument: React.FC<UploadDocumentProps> = ({ onUploadSuccess 
   }, [selectedFile, documentName, onUploadSuccess]);
 
   return (
-    <Paper elevation={2} sx={{ p: 3 }}>
-      <Typography variant="h6" gutterBottom>
-        Upload OpenAPI Document
-      </Typography>
+    <>
+      <Tooltip title="Upload new document">
+        <IconButton
+          color="primary"
+          onClick={handleOpen}
+          sx={{
+            border: '1px dashed',
+            borderColor: 'primary.main',
+            borderRadius: 2,
+            width: '100%',
+            py: 1,
+            gap: 1,
+            '&:hover': { bgcolor: 'primary.50' },
+          }}
+        >
+          <AddIcon />
+          <Typography variant="body2" color="primary">Upload document</Typography>
+        </IconButton>
+      </Tooltip>
 
-      <TextField
-        fullWidth
-        label="Document Name"
-        value={documentName}
-        onChange={(e) => setDocumentName(e.target.value)}
-        margin="normal"
-        disabled={loading}
-        required
-        placeholder="e.g., User Management API"
-      />
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+        <DialogTitle>Upload OpenAPI Document</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
 
-      <Box sx={{ mt: 2, mb: 2 }}>
-        <input
-          accept="application/json,.json,.yml,.yaml"
-          style={{ display: 'none' }}
-          id="file-upload"
-          type="file"
-          onChange={handleFileChange}
-          disabled={loading}
-        />
-        <label htmlFor="file-upload">
-          <Button
-            variant="outlined"
-            component="span"
+          <TextField
             fullWidth
+            label="Document Name"
+            value={documentName}
+            onChange={(e) => setDocumentName(e.target.value)}
             disabled={loading}
-            startIcon={<CloudUploadIcon />}
+            required
+            placeholder="e.g., User Management API"
+          />
+
+          <Box>
+            <input
+              accept="application/json,.json,.yml,.yaml"
+              style={{ display: 'none' }}
+              id="file-upload"
+              type="file"
+              onChange={handleFileChange}
+              disabled={loading}
+            />
+            <label htmlFor="file-upload">
+              <Button
+                variant="outlined"
+                component="span"
+                fullWidth
+                disabled={loading}
+                startIcon={<CloudUploadIcon />}
+              >
+                {selectedFile ? selectedFile.name : 'Select JSON or YAML file'}
+              </Button>
+            </label>
+          </Box>
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={handleClose} disabled={loading}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleUpload}
+            disabled={!selectedFile || !documentName.trim() || loading}
+            startIcon={loading ? <CircularProgress size={16} /> : <CloudUploadIcon />}
           >
-            Select JSON or YAML file
+            {loading ? 'Uploading...' : 'Upload'}
           </Button>
-        </label>
-      </Box>
-
-      {selectedFile && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Selected file: {selectedFile.name}
-        </Typography>
-      )}
-
-      <Button
-        fullWidth
-        variant="contained"
-        onClick={handleUpload}
-        disabled={!selectedFile || !documentName.trim() || loading}
-        startIcon={loading ? <CircularProgress size={20} /> : <CloudUploadIcon />}
-      >
-        {loading ? 'Uploading...' : 'Upload Document'}
-      </Button>
-
-      {error && (
-        <Alert severity="error" sx={{ mt: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mt: 2 }}>
-          {success}
-        </Alert>
-      )}
-    </Paper>
+        </DialogActions>
+      </Dialog>
+    </>
   );
 };
-

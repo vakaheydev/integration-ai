@@ -47,3 +47,37 @@ export interface SearchResponse {
   modelResponse: string;
 }
 
+// ---- Task models ----
+
+export type TaskType = 'CODE' | 'ANALYZE' | 'TEST';
+export type TaskStatus = 'CREATED' | 'RUNNING' | 'WAITING' | 'COMPLETED' | 'FAILED';
+
+export interface TaskStage {
+  id: number;
+  name: string;
+  description: string;
+  instantStart: string;
+  instantEnd: string;
+  duration: string | null;
+  status: TaskStatus;
+}
+
+export interface Task {
+  id: string;
+  documentId: string;
+  userId: string;
+  type: TaskType;
+  description: string;
+  status: TaskStatus;
+  currentStage: TaskStage | null;
+  statusDescription: string | null;
+  completedDatetime: string | null;
+  result: string | null;
+  stageHistory: TaskStage[];
+}
+
+export interface CreateTaskRequest {
+  type: TaskType;
+  description: string;
+}
+

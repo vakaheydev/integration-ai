@@ -4,6 +4,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { MainPage } from './pages/MainPage';
 import { LoginPage } from './pages/LoginPage';
+import { TaskPage } from './pages/TaskPage';
 
 const theme = createTheme({
   palette: {
@@ -41,6 +42,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <MainPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/tasks/:taskId"
+              element={
+                <ProtectedRoute>
+                  <TaskPage />
                 </ProtectedRoute>
               }
             />
