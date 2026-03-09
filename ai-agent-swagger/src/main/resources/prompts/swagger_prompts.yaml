@@ -7,6 +7,343 @@ prompts:
       SYSTEM: You are the best expert developer and code architect.
 
   actions:
+    handle-task:
+      review-task-result: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<TASK_RESULT>>>
+        ${taskResult}
+        <<<END_TASK_RESULT>>>
+        
+        <<<TASK_STATUS>>>
+        ${taskStatus}
+        <<<END_TASK_STATUS>>>
+
+        Review the provided result of the task based on task_description, task_result and task_status.
+        Explain to user if the task is completed successfully or not.
+        If the task is not completed successfully, explain what went wrong and what can be done to fix it. 
+        If the task is completed successfully, then answer so.
+        Answer on language of task_description.
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, comments, or explanations.
+        2) The answer MUST be a string.
+      analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+        
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Analyze the task and produce a short execution plan for another AI that will perform it.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be done>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the result should look like>
+
+        STRICT OUTPUT RULES:
+        1) Each step must be specific and actionable.
+        2) Do NOT include markdown, code fences, comments, or prose outside the format above.
+        3) The answer MUST follow the output format exactly.
+      retry-analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+        
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        Produce a corrected short execution plan for another AI that will perform the task.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be done>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the result should look like>
+
+        STRICT OUTPUT RULES:
+        1) Each step must be specific and actionable.
+        2) Do NOT include markdown, code fences, comments, or prose outside the format above.
+        3) The answer MUST follow the output format exactly.
+      review-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+        
+        <<<ANALYSIS>>>
+        ${analysis}
+        <<<END_ANALYSIS>>>
+
+        Review the provided analysis (execution plan) for the task described in task_description.  
+        If you find any mistakes, inaccuracies, or missing information, explain why.  
+        If you think that something important is missing, specify what information is needed to complete the analysis.
+        If the analysis is already perfect, then answer so.
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, comments, or explanations.
+        2) The answer MUST be a string.
+      review-task-analysis-solution: |
+        <<<REVIEW_FEEDBACK>>>
+        ${review}
+        <<<REVIEW_FEEDBACK>>>
+
+        Based on REVIEW_FEEDBACK, decide if the analysis needs to be redone.
+        If the analysis was completed successfully — answer "yes".
+        If the analysis failed, is incomplete, or needs to be redone — answer "no".
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, comments, or explanations.
+        2) The answer MUST be a single word: "yes" or "no".
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, comments, or explanations.
+        2) The answer MUST be a string with one word - "yes" or "no".
+      handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Execute the task strictly following the EXECUTION_PLAN step by step.
+        Use the tools specified in each step. Do not skip steps.
+        The result must directly solve the task described in TASK_DESCRIPTION.
+        Answer on language of task_description.
+
+        STRICT OUTPUT RULES:
+        1) Return only the final result of the task execution.
+        2) Do NOT include the plan, step numbers, tool names, or any meta-information.
+        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+      review-handle-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<TASK_RESULT>>>
+        ${taskResult}
+        <<<END_TASK_RESULT>>>
+
+        Evaluate whether the task described in TASK_DESCRIPTION was completed successfully based on TASK_RESULT.
+        Be strict: if the result is incomplete, off-topic, or contains errors — say so explicitly.
+        Answer on language of task_description.
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, or explanations.
+        2) The answer MUST be a string.
+      review-handle-analysis-solution: |
+        <<<REVIEW_FEEDBACK>>>
+        ${feedback}
+        <<<END_REVIEW_FEEDBACK>>>
+
+        Based on REVIEW_FEEDBACK, decide if the task needs to be redone.
+        If the task was completed successfully — answer "yes".
+        If the task failed, is incomplete, or needs to be redone — answer "no".
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, comments, or explanations.
+        2) The answer MUST be a single word: "yes" or "no".
+      retry-handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous attempt to execute this task was rejected. FEEDBACK explains what went wrong.
+        Re-execute the task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix the issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The result must directly solve the task described in TASK_DESCRIPTION.
+        Answer on language of task_description.
+
+        STRICT OUTPUT RULES:
+        1) Return only the final result of the task execution.
+        2) Do NOT include the plan, step numbers, tool names, feedback, or any meta-information.
+        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+      analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Analyze the task and produce a short execution plan for another AI that will perform it.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be done>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the result should look like>
+
+        STRICT OUTPUT RULES:
+        1) Each step must be specific and actionable.
+        2) Do NOT include markdown, code fences, comments, or prose outside the format above.
+        3) The answer MUST follow the output format exactly.
+      retry-analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        Produce a corrected short execution plan for another AI that will perform the task.
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be done>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the result should look like>
+
+        STRICT OUTPUT RULES:
+        1) Each step must be specific and actionable.
+        2) Do NOT include markdown, code fences, comments, or prose outside the format above.
+        3) The answer MUST follow the output format exactly.
+      handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Execute the task strictly following the EXECUTION_PLAN step by step.
+        No API document is attached — use only general knowledge and available tools.
+        Do not skip steps. The result must directly solve the task described in TASK_DESCRIPTION.
+        Answer on language of task_description.
+
+        STRICT OUTPUT RULES:
+        1) Return only the final result of the task execution.
+        2) Do NOT include the plan, step numbers, tool names, or any meta-information.
+        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+      retry-handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous attempt to execute this task was rejected. FEEDBACK explains what went wrong.
+        No API document is attached — use only general knowledge and available tools.
+        Re-execute the task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix the issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The result must directly solve the task described in TASK_DESCRIPTION.
+        Answer on language of task_description.
+
+        STRICT OUTPUT RULES:
+        1) Return only the final result of the task execution.
+        2) Do NOT include the plan, step numbers, tool names, feedback, or any meta-information.
+        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+      task-chat: |
+        <<<TASK_CONTEXT>>>
+        ID: ${taskId}
+        Type: ${taskType}
+        Status: ${taskStatus}
+        Status description: ${taskStatusDescription}
+        Description: ${taskDescription}
+        Result: ${taskResult}
+        Current stage: ${taskCurrentStage}
+        <<<END_TASK_CONTEXT>>>
+
+        <<<USER_QUESTION>>>
+        ${userQuestion}
+        <<<END_USER_QUESTION>>>
+
+        You are an assistant helping the user understand the task above.
+        Answer the user's question based on the task context provided.
+        If the task has a result, you may refer to it in your answer.
+        Answer on language of user_question.
+
+        STRICT OUTPUT RULES:
+        1) Do NOT include markdown, code fences, or meta-information.
+        2) The answer MUST be a concise string.
     vector-search:
       extract-key-words: |
         <<<USER_QUESTION>>>

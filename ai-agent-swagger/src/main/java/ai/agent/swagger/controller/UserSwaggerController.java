@@ -1,11 +1,16 @@
 package ai.agent.swagger.controller;
 
 import ai.agent.swagger.model.ChatRequest;
+import ai.agent.swagger.model.CreateTaskRequest;
 import ai.agent.swagger.model.SwaggerDocument;
 import ai.agent.swagger.model.SwaggerSearchResult;
+import ai.agent.swagger.model.Task;
 import ai.agent.swagger.security.SecurityUtils;
+import ai.agent.swagger.service.TaskService;
+import ai.agent.swagger.service.ai.AiSwaggerGraphService;
 import ai.agent.swagger.service.SwaggerService;
 import jakarta.validation.Valid;
+import org.bsc.langgraph4j.GraphStateException;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,9 +26,14 @@ import java.util.Optional;
 @RequestMapping("/api/me/swagger")
 public class UserSwaggerController {
     private final SwaggerService swaggerService;
+    private final AiSwaggerGraphService aiSwaggerGraphService;
+    private final TaskService taskService;
 
-    public UserSwaggerController(SwaggerService swaggerService) {
+    public UserSwaggerController(SwaggerService swaggerService, AiSwaggerGraphService aiSwaggerGraphService,
+                                 TaskService taskService) {
         this.swaggerService = swaggerService;
+        this.aiSwaggerGraphService = aiSwaggerGraphService;
+        this.taskService = taskService;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -87,6 +97,14 @@ public class UserSwaggerController {
         String userId = SecurityUtils.currentUser().getId();
         List<SwaggerDocument> swaggers = swaggerService.getSwaggersByUserId(userId);
         return ResponseEntity.ok(swaggers);
+    }
+
+    @PostMapping("/{documentId}/task")
+    public ResponseEntity<Task> createTask(@PathVariable("documentId") String documentId,
+                                           @Valid @RequestBody CreateTaskRequest request) {
+        String userId = SecurityUtils.currentUser().getId();
+        Task task = taskService.createTask(documentId, userId, request);
+        return ResponseEntity.ok(task);
     }
 
     @DeleteMapping("/{documentId}")

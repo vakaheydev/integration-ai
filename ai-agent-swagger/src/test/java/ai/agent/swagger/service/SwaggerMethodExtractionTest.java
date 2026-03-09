@@ -8,7 +8,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @DisplayName("FT-001/FT-002/FT-003/FT-004 - Выделение методов из Swagger")
 public class SwaggerMethodExtractionTest {
 
-    private final SwaggerService swaggerService = new SwaggerService(null, null, null, null);
+    private final SwaggerServiceDocument swaggerService = new SwaggerServiceDocument(null, null, null);
 
     @Test
     @DisplayName("FT-001: валидный OpenAPI - извлекаются все методы")

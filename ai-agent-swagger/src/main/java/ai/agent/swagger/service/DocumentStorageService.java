@@ -23,8 +23,8 @@ public class DocumentStorageService {
         return swaggerDocumentRepository.findByUserId(userId);
     }
 
-    public void saveDocument(SwaggerDocument swaggerDocument) {
-        swaggerDocumentRepository.save(swaggerDocument);
+    public SwaggerDocument saveDocument(SwaggerDocument swaggerDocument) {
+        return swaggerDocumentRepository.save(swaggerDocument);
     }
 
     public void deleteDocument(String id) {

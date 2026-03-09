@@ -2,6 +2,9 @@ package ai.agent.swagger.config;
 
 import ai.agent.swagger.security.*;
 import ai.agent.swagger.service.*;
+import ai.agent.swagger.service.SwaggerServiceAi;
+import ai.agent.swagger.service.SwaggerServiceDocument;
+import ai.agent.swagger.service.ai.AiChatService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -16,7 +19,6 @@ import org.springframework.data.mongodb.core.convert.MongoConverter;
 import org.springframework.data.mongodb.core.mapping.MongoMappingContext;
 import org.springframework.data.mongodb.core.mapping.MongoPersistentEntity;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
@@ -75,6 +77,21 @@ public class MockServicesConfig {
     @Bean
     public PromptBuilderService promptBuilderService() {
         return Mockito.mock(PromptBuilderService.class);
+    }
+
+    @Bean
+    public SwaggerServiceDocument swaggerServiceDocument() {
+        return Mockito.mock(SwaggerServiceDocument.class);
+    }
+
+    @Bean
+    public SwaggerServiceAi swaggerServiceAi() {
+        return Mockito.mock(SwaggerServiceAi.class);
+    }
+
+    @Bean
+    public SwaggerService swaggerService() {
+        return Mockito.mock(SwaggerService.class);
     }
 
     // --- DataInitializer ---
