@@ -46,6 +46,10 @@ public class SwaggerService {
         swaggerServiceDocument.deleteDocumentById(id);
     }
 
+    public void deleteAllByUserId(String userId) {
+        swaggerServiceDocument.deleteAllByUserId(userId);
+    }
+
     public String resolveSwaggerMethodSummary(String swaggerContent) {
         return swaggerServiceDocument.resolveSwaggerMethodSummary(swaggerContent);
     }

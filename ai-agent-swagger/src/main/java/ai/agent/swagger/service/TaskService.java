@@ -41,6 +41,22 @@ public class TaskService {
         return saved;
     }
 
+    public Task createTaskFromBase(String baseTaskId, String userId, String userMessage) {
+        Task base = taskRepository.findById(baseTaskId)
+                .orElseThrow(() -> new IllegalArgumentException("Base task not found: " + baseTaskId));
+        Task newTask = Task.builder()
+                .documentId(base.getDocumentId())
+                .userId(userId)
+                .type(base.getType())
+                .description(base.getDescription())
+                .previousResult(base.getResult())
+                .userMessage(userMessage)
+                .build();
+        Task saved = taskRepository.save(newTask);
+        log.debug("Created task id={} from base task id={}", saved.getId(), baseTaskId);
+        return saved;
+    }
+
     public Task finishTask(String taskId, TaskStatus status, String statusDescription, String result) {
         Task existing = taskRepository.findById(taskId)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
@@ -96,7 +112,16 @@ public class TaskService {
         log.debug("Deleted task id={}", id);
     }
 
+    public void deleteAllByUserId(String userId) {
+        taskRepository.deleteByUserId(userId);
+        log.debug("Deleted all tasks for userId={}", userId);
+    }
+
     public Task restartTask(String id) {
+        return restartTask(id, null, null);
+    }
+
+    public Task restartTask(String id, String previousResult, String userMessage) {
         Task task = taskRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + id));
         task.setStatus(TaskStatus.CREATED);
@@ -104,9 +129,11 @@ public class TaskService {
         task.setStatusDescription(null);
         task.setCompletedDatetime(null);
         task.setStageHistory(new ArrayList<>());
+        task.setPreviousResult(previousResult != null ? previousResult : task.getResult());
         task.setResult(null);
+        task.setUserMessage(userMessage);
         Task saved = taskRepository.save(task);
-        log.debug("Restarted task id={}", id);
+        log.debug("Restarted task id={} with userMessage={}", id, userMessage);
         return saved;
     }
 

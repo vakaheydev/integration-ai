@@ -6,6 +6,45 @@ prompts:
     programmer: |
       SYSTEM: You are the best expert developer and code architect.
 
+  outputs:
+    text: |
+      STRICT OUTPUT RULES:
+      1) Do NOT include markdown, code fences, comments, or explanations.
+      2) The answer MUST be a plain string.
+
+    yes-no: |
+      STRICT OUTPUT RULES:
+      1) Do NOT include markdown, code fences, comments, or explanations.
+      2) The answer MUST be a single word: "yes" or "no".
+
+    analysis-plan: |
+      STRICT OUTPUT RULES:
+      1) Each step must be specific and actionable.
+      2) Do NOT include markdown, code fences, comments, or prose outside the format above.
+      3) The answer MUST follow the output format exactly.
+
+    code: |
+      STRICT OUTPUT RULES:
+      1) Return ONLY the code. Do NOT include the plan, step numbers, tool names, or any meta-information.
+      2) The code MUST be wrapped between <<<CODE_START language=python>>> and <<<CODE_END>>>.
+      3) Follow PEP8; use functions, docstrings and SOLID principles.
+      4) For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
+
+    test: |
+      STRICT OUTPUT RULES:
+      1) Return ONLY the test code. Do NOT include the plan, step numbers, tool names, or any meta-information.
+      2) The code MUST be wrapped between <<<CODE_START language=python>>> and <<<CODE_END>>>.
+      3) Follow PEP8; use pytest as the test framework.
+      4) Each test function must have a descriptive name starting with "test_".
+      5) Include assertions that verify HTTP status codes and response structure.
+      6) For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
+
+    analysis-result: |
+      STRICT OUTPUT RULES:
+      1) Return only the final result of the task execution.
+      2) Do NOT include the plan, step numbers, tool names, or any meta-information.
+      3) Do NOT include markdown, code fences, or explanations.
+
   actions:
     handle-task:
       review-task-result: |
@@ -16,20 +55,37 @@ prompts:
         <<<TASK_RESULT>>>
         ${taskResult}
         <<<END_TASK_RESULT>>>
-        
+
         <<<TASK_STATUS>>>
         ${taskStatus}
         <<<END_TASK_STATUS>>>
 
-        Review the provided result of the task based on task_description, task_result and task_status.
-        Explain to user if the task is completed successfully or not.
+        Review the task result and the task status.
         If the task is not completed successfully, explain what went wrong and what can be done to fix it. 
         If the task is completed successfully, then answer so.
         Answer on language of task_description.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
-        2) The answer MUST be a string.
+        ${outputRules.text}
+      review-previous-result: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<PREVIOUS_RESULT>>>
+        ${previousResult}
+        <<<END_PREVIOUS_RESULT>>>
+
+        <<<USER_FEEDBACK>>>
+        ${userMessage}
+        <<<END_USER_FEEDBACK>>>
+
+        This task was previously completed, but the user was not satisfied with the result and restarted it.
+        Analyze the PREVIOUS_RESULT and the USER_FEEDBACK carefully.
+        Produce a detailed list of what must be fixed or improved in the next attempt.
+        Be specific: reference exact parts of the previous result that need changes.
+        Answer on language of task_description.
+
+        ${outputRules.text}
       analyze-task: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -51,6 +107,7 @@ prompts:
         ${availableTools}
         <<<END_AVAILABLE_TOOLS>>>
 
+        ${restartContext}
         Analyze the task and produce a short execution plan for another AI that will perform it.
         Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
@@ -65,10 +122,7 @@ prompts:
         ...
         EXPECTED RESULT: <one sentence — what the result should look like>
 
-        STRICT OUTPUT RULES:
-        1) Each step must be specific and actionable.
-        2) Do NOT include markdown, code fences, comments, or prose outside the format above.
-        3) The answer MUST follow the output format exactly.
+        ${outputRules.analysisPlan}
       retry-analyze-task: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -109,10 +163,7 @@ prompts:
         ...
         EXPECTED RESULT: <one sentence — what the result should look like>
 
-        STRICT OUTPUT RULES:
-        1) Each step must be specific and actionable.
-        2) Do NOT include markdown, code fences, comments, or prose outside the format above.
-        3) The answer MUST follow the output format exactly.
+        ${outputRules.analysisPlan}
       review-task-analysis: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -127,9 +178,7 @@ prompts:
         If you think that something important is missing, specify what information is needed to complete the analysis.
         If the analysis is already perfect, then answer so.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
-        2) The answer MUST be a string.
+        ${outputRules.text}
       review-task-analysis-solution: |
         <<<REVIEW_FEEDBACK>>>
         ${review}
@@ -139,13 +188,7 @@ prompts:
         If the analysis was completed successfully — answer "yes".
         If the analysis failed, is incomplete, or needs to be redone — answer "no".
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
-        2) The answer MUST be a single word: "yes" or "no".
-
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
-        2) The answer MUST be a string with one word - "yes" or "no".
+        ${outputRules.yesNo}
       handle-task-analysis: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -164,10 +207,7 @@ prompts:
         The result must directly solve the task described in TASK_DESCRIPTION.
         Answer on language of task_description.
 
-        STRICT OUTPUT RULES:
-        1) Return only the final result of the task execution.
-        2) Do NOT include the plan, step numbers, tool names, or any meta-information.
-        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+        ${outputRules.analysisResult}
       review-handle-analysis: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -177,13 +217,16 @@ prompts:
         ${taskResult}
         <<<END_TASK_RESULT>>>
 
+        <<<EXPECTED_OUTPUT_RULES>>>
+        ${expectedOutputRules}
+        <<<END_EXPECTED_OUTPUT_RULES>>>
+
         Evaluate whether the task described in TASK_DESCRIPTION was completed successfully based on TASK_RESULT.
         Be strict: if the result is incomplete, off-topic, or contains errors — say so explicitly.
+        Also verify that TASK_RESULT follows the EXPECTED_OUTPUT_RULES. If the result violates the output format (e.g. missing <<<CODE_START>>> / <<<CODE_END>>> markers, contains markdown fences when forbidden, etc.) — explicitly mention this violation in your feedback.
         Answer on language of task_description.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, or explanations.
-        2) The answer MUST be a string.
+        ${outputRules.text}
       review-handle-analysis-solution: |
         <<<REVIEW_FEEDBACK>>>
         ${feedback}
@@ -193,9 +236,7 @@ prompts:
         If the task was completed successfully — answer "yes".
         If the task failed, is incomplete, or needs to be redone — answer "no".
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
-        2) The answer MUST be a single word: "yes" or "no".
+        ${outputRules.yesNo}
       retry-handle-task-analysis: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -219,10 +260,7 @@ prompts:
         The result must directly solve the task described in TASK_DESCRIPTION.
         Answer on language of task_description.
 
-        STRICT OUTPUT RULES:
-        1) Return only the final result of the task execution.
-        2) Do NOT include the plan, step numbers, tool names, feedback, or any meta-information.
-        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+        ${outputRules.analysisResult}
       analyze-task-general: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -232,6 +270,7 @@ prompts:
         ${availableTools}
         <<<END_AVAILABLE_TOOLS>>>
 
+        ${restartContext}
         Analyze the task and produce a short execution plan for another AI that will perform it.
         No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
         If no tool is needed for a step, write "none".
@@ -247,10 +286,7 @@ prompts:
         ...
         EXPECTED RESULT: <one sentence — what the result should look like>
 
-        STRICT OUTPUT RULES:
-        1) Each step must be specific and actionable.
-        2) Do NOT include markdown, code fences, comments, or prose outside the format above.
-        3) The answer MUST follow the output format exactly.
+        ${outputRules.analysisPlan}
       retry-analyze-task-general: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -279,10 +315,7 @@ prompts:
         ...
         EXPECTED RESULT: <one sentence — what the result should look like>
 
-        STRICT OUTPUT RULES:
-        1) Each step must be specific and actionable.
-        2) Do NOT include markdown, code fences, comments, or prose outside the format above.
-        3) The answer MUST follow the output format exactly.
+        ${outputRules.analysisPlan}
       handle-task-analysis-general: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -297,10 +330,7 @@ prompts:
         Do not skip steps. The result must directly solve the task described in TASK_DESCRIPTION.
         Answer on language of task_description.
 
-        STRICT OUTPUT RULES:
-        1) Return only the final result of the task execution.
-        2) Do NOT include the plan, step numbers, tool names, or any meta-information.
-        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+        ${outputRules.analysisResult}
       retry-handle-task-analysis-general: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -321,10 +351,7 @@ prompts:
         The result must directly solve the task described in TASK_DESCRIPTION.
         Answer on language of task_description.
 
-        STRICT OUTPUT RULES:
-        1) Return only the final result of the task execution.
-        2) Do NOT include the plan, step numbers, tool names, feedback, or any meta-information.
-        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+        ${outputRules.analysisResult}
       handle-task-analysis-after-error: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -348,10 +375,7 @@ prompts:
         The result must directly solve the task described in TASK_DESCRIPTION.
         Answer on language of task_description.
 
-        STRICT OUTPUT RULES:
-        1) Return only the final result of the task execution.
-        2) Do NOT include the plan, step numbers, tool names, or any meta-information.
-        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+        ${outputRules.analysisResult}
       handle-task-analysis-after-error-general: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -372,10 +396,7 @@ prompts:
         The result must directly solve the task described in TASK_DESCRIPTION.
         Answer on language of task_description.
 
-        STRICT OUTPUT RULES:
-        1) Return only the final result of the task execution.
-        2) Do NOT include the plan, step numbers, tool names, or any meta-information.
-        3) Do NOT include markdown, code fences, or explanations unless the task explicitly requires code.
+        ${outputRules.analysisResult}
       task-chat: |        
         <<<TASK_CONTEXT>>>
         ID: ${taskId}
@@ -396,9 +417,521 @@ prompts:
         If the task has a result, you may refer to it in your answer.
         Answer on language of user_question.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, or meta-information.
-        2) The answer MUST be a concise string.
+        ${outputRules.text}
+    code-task:
+      analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        Analyze the coding task and produce a short execution plan for another AI that will implement it.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs) MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+        
+        For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what code needs to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final code should do>
+
+        ${outputRules.analysisPlan}
+      retry-analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        Produce a corrected short execution plan for another AI that will implement the coding task.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs) MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+        
+        For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what code needs to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final code should do>
+
+        ${outputRules.analysisPlan}
+      handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Implement the coding task strictly following the EXECUTION_PLAN step by step.
+        Use the tools specified in each step. Do not skip steps.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      retry-handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous code was rejected. FEEDBACK explains what went wrong.
+        Re-implement the coding task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix all issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      handle-task-analysis-after-error: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to implement this task failed with the error in PREVIOUS_ERROR.
+        Re-implement the coding task strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        Analyze the coding task and produce a short execution plan for another AI that will implement it.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what code needs to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final code should do>
+
+        ${outputRules.analysisPlan}
+      retry-analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        Produce a corrected short execution plan for another AI that will implement the coding task.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what code needs to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final code should do>
+
+        ${outputRules.analysisPlan}
+      handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Implement the coding task strictly following the EXECUTION_PLAN step by step.
+        No API document is attached — use only general knowledge and available tools.
+        Do not skip steps. The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      retry-handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous code was rejected. FEEDBACK explains what went wrong.
+        No API document is attached — use only general knowledge and available tools.
+        Re-implement the coding task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix all issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      handle-task-analysis-after-error-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to implement this task failed with the error in PREVIOUS_ERROR.
+        Re-implement the coding task strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        No API document is attached — use only general knowledge and available tools.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+    test-task:
+      analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        Analyze the API testing task and produce a short execution plan for another AI that will write API tests.
+        The tests must verify that the API endpoints work correctly: check HTTP status codes, response structure, required fields, error handling.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs, expected status codes) MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what tests need to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final test suite should verify>
+
+        ${outputRules.analysisPlan}
+      retry-analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        Produce a corrected short execution plan for another AI that will write API tests.
+        The tests must verify that the API endpoints work correctly: check HTTP status codes, response structure, required fields, error handling.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs, expected status codes) MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what tests need to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final test suite should verify>
+
+        ${outputRules.analysisPlan}
+      handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Write API tests strictly following the EXECUTION_PLAN step by step.
+        Use the tools specified in each step. Do not skip steps.
+        The tests must use Python pytest and the requests library.
+        Each test must send a real HTTP request to the API and assert on:
+        - HTTP status code
+        - Response body structure (required fields exist)
+        - Error responses for invalid input
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      retry-handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous tests were rejected. FEEDBACK explains what went wrong.
+        Re-write the API tests strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix all issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The tests must use Python pytest and the requests library.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      handle-task-analysis-after-error: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to write tests failed with the error in PREVIOUS_ERROR.
+        Re-write the API tests strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        The tests must use Python pytest and the requests library.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        Analyze the API testing task and produce a short execution plan for another AI that will write API tests.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what tests need to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final test suite should verify>
+
+        ${outputRules.analysisPlan}
+      retry-analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        Produce a corrected short execution plan for another AI that will write API tests.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what tests need to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final test suite should verify>
+
+        ${outputRules.analysisPlan}
+      handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Write API tests strictly following the EXECUTION_PLAN step by step.
+        No API document is attached — use only general knowledge and available tools.
+        Do not skip steps. The tests must use Python pytest and the requests library.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      retry-handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous tests were rejected. FEEDBACK explains what went wrong.
+        No API document is attached — use only general knowledge and available tools.
+        Re-write the API tests strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix all issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      handle-task-analysis-after-error-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to write tests failed with the error in PREVIOUS_ERROR.
+        Re-write the API tests strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        No API document is attached — use only general knowledge and available tools.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
     vector-search:
       extract-key-words: |
         <<<USER_QUESTION>>>
@@ -414,9 +947,7 @@ prompts:
         Return ONLY:
         keyword1, keyword2, keyword3...
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
-        2) The answer MUST be a single string of comma-separated words.
+        ${outputRules.text}
 
       not-found: |
         <<<USER_QUESTION>>>
@@ -428,16 +959,19 @@ prompts:
         Your answer must be extremely short (maximum 2 sentences).
         You MUST answer in the user's language.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
+        ${outputRules.text}
     document-chat:
       upload: |
+        <<<SWAGGER_INFO>>>
+        ${swaggerInfoSummary}
+        <<<END_SWAGGER_INFO>>>
+
         <<<SWAGGER_METHODS>>>
         ${swaggerMethodSummary}
         <<<END_SWAGGER_METHODS>>>
 
         TASK:
-        Analyze the provided OpenAPI document method summary and produce a very short overview (maximum 5 sentences).
+        Analyze the provided OpenAPI document and produce a very short overview (maximum 5 sentences).
         You MUST answer in Russian language.
 
         Your overview MUST answer:
@@ -447,8 +981,7 @@ prompts:
         DO NOT list all available endpoints.
         Summarize the overall functionality in one sentence.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
+        ${outputRules.text}
 
       analyze: |
         <<<USER_QUESTION>>>
@@ -469,8 +1002,7 @@ prompts:
         Do not list all methods, only reference what is necessary to illustrate your answer.
         You MUST answer in the user's language.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
+        ${outputRules.text}
       code: |
         <<<USER_QUESTION>>>
         ${userPrompt}
@@ -490,9 +1022,5 @@ prompts:
         REQUIREMENTS:
         - Language: Python 3.11
         - Style: PEP8, SOLID, modular
-        - Output: only the code wrapped between <<<CODE_START language=python>>> and <<<CODE_END>>>
-        
-        STRICT OUTPUT RULES:
-        1) Return ONLY the code in plain text. Do NOT include any prose, explanation, or markdown fences.
-        2) The response MUST start with: <<<CODE_START language=python>>> and end with: <<<CODE_END>>>.
-        3) Follow PEP8; use functions, docstrings and SOLID principles.
+
+        ${outputRules.code}

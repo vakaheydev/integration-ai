@@ -107,6 +107,13 @@ public class UserSwaggerController {
         return ResponseEntity.ok(task);
     }
 
+    @DeleteMapping("/deleteAll")
+    public ResponseEntity<?> deleteAllDocuments() {
+        String userId = SecurityUtils.currentUser().getId();
+        swaggerService.deleteAllByUserId(userId);
+        return ResponseEntity.noContent().build();
+    }
+
     @DeleteMapping("/{documentId}")
     public ResponseEntity<?> deleteDocument(@PathVariable("documentId") String documentId) {
         Optional<SwaggerDocument> swagger = swaggerService.getSwaggerById(documentId);

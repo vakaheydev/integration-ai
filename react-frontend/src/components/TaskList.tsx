@@ -31,11 +31,13 @@ import {
   Replay as ReloadIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
+  DeleteSweep as DeleteAllIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { tasksApi } from '../api/tasksApi';
 import type { Task, SwaggerDocument } from '../models/types';
 import { CreateTaskDialog } from './CreateTaskDialog';
+import { DeleteAllDialog } from './DeleteAllDialog';
 
 const statusConfig: Record<string, { label: string; color: 'default' | 'primary' | 'warning' | 'error' | 'success'; icon: React.ReactElement }> = {
   CREATED:   { label: 'Created',   color: 'default',  icon: <ScheduleIcon fontSize="small" /> },
@@ -57,6 +59,7 @@ export const TaskList: React.FC<{ documents: SwaggerDocument[] }> = ({ documents
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<Task | null>(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -111,6 +114,13 @@ export const TaskList: React.FC<{ documents: SwaggerDocument[] }> = ({ documents
             <IconButton onClick={() => setCreateOpen(true)} size="small" color="primary">
               <AddIcon />
             </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete all tasks">
+            <span>
+              <IconButton onClick={() => setDeleteAllOpen(true)} size="small" color="error" disabled={tasks.length === 0}>
+                <DeleteAllIcon />
+              </IconButton>
+            </span>
           </Tooltip>
           <Tooltip title="Refresh">
             <IconButton onClick={loadTasks} disabled={loading} size="small">
@@ -220,6 +230,13 @@ export const TaskList: React.FC<{ documents: SwaggerDocument[] }> = ({ documents
         open={createOpen}
         onClose={() => { setCreateOpen(false); loadTasks(); }}
         documents={documents}
+      />
+
+      <DeleteAllDialog
+        open={deleteAllOpen}
+        onClose={() => setDeleteAllOpen(false)}
+        onConfirm={async () => { await tasksApi.deleteAllTasks(); await loadTasks(); }}
+        itemName="tasks"
       />
     </Box>
   );

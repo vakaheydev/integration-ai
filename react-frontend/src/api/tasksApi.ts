@@ -64,8 +64,8 @@ export const tasksApi = {
   },
 
   // Reload (restart) a task
-  reloadTask: async (taskId: string): Promise<Task> => {
-    const response = await apiClient.post<Task>(`tasks/${taskId}/restart`);
+  reloadTask: async (taskId: string, userMessage?: string): Promise<Task> => {
+    const response = await apiClient.post<Task>(`tasks/${taskId}/restart`, { userMessage: userMessage ?? '' });
     return response.data;
   },
 
@@ -74,9 +74,32 @@ export const tasksApi = {
     await apiClient.delete(`tasks/${taskId}`);
   },
 
+  // Delete all tasks
+  deleteAllTasks: async (): Promise<void> => {
+    await apiClient.delete('tasks/deleteAll');
+  },
+
   // Chat with AI about a task
   chatWithTask: async (taskId: string, query: string, role: string): Promise<any> => {
     const response = await apiClient.post(`tasks/${taskId}/chat`, { query, role });
+    return response.data;
+  },
+
+  // Execute Python code for a task
+  executeCode: async (taskId: string, code?: string): Promise<{
+    success: boolean;
+    exitCode: number;
+    stdout: string;
+    stderr: string;
+    timedOut: boolean;
+  }> => {
+    const response = await apiClient.post(`tasks/${taskId}/executeCode`, code ? { code } : {});
+    return response.data;
+  },
+
+  // Create a new task based on an existing one
+  createFromBase: async (taskId: string, userMessage?: string): Promise<Task> => {
+    const response = await apiClient.post<Task>(`tasks/fromBase/${taskId}`, { userMessage: userMessage ?? '' });
     return response.data;
   },
 };

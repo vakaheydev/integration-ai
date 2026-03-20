@@ -33,4 +33,10 @@ public class Task {
 
     @Builder.Default
     private List<Stage> stageHistory = new ArrayList<>();
+
+    /** Результат предыдущего выполнения (заполняется при рестарте) */
+    private String previousResult;
+
+    /** Сообщение пользователя при рестарте — что не устроило / что нужно исправить */
+    private String userMessage;
 }

@@ -11,13 +11,15 @@ import {
   PlayArrow as PlayArrowIcon, HourglassEmpty as HourglassIcon,
   Replay as ReloadIcon, Delete as DeleteIcon, ContentCopy as CopyIcon,
   ArrowUpward as ArrowUpIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon,
-  Send as SendIcon, Close as CloseIcon,
+  Send as SendIcon, Close as CloseIcon, CallSplit as FromBaseIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { tasksApi } from '../api/tasksApi';
 import { documentsApi } from '../api/documentsApi';
 import type { Task, TaskStage, SwaggerDocument } from '../models/types';
+import { parseMessageWithCode } from '../utils/messageParser';
+import { CodeBlock } from '../components/CodeBlock';
 
 interface TaskChatMessage {
   role: 'user' | 'assistant';
@@ -165,6 +167,19 @@ export const TaskPage: React.FC = () => {
   const [historyExpanded, setHistoryExpanded] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Retry dialog
+  const [retryDialogOpen, setRetryDialogOpen] = useState(false);
+  const [retryMessage, setRetryMessage] = useState('');
+  const [retrying, setRetrying] = useState(false);
+
+  // Create from base dialog
+  const [fromBaseDialogOpen, setFromBaseDialogOpen] = useState(false);
+  const [fromBaseMessage, setFromBaseMessage] = useState('');
+  const [creatingFromBase, setCreatingFromBase] = useState(false);
+
+  // Last code execution result (stdout/stderr) — shared from CodeBlock
+  const [lastExecResult, setLastExecResult] = useState<{ stdout: string; stderr: string } | null>(null);
+
   // Chat state
   const [chatMessages, setChatMessages] = useState<TaskChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
@@ -250,15 +265,51 @@ export const TaskPage: React.FC = () => {
     };
   }, [taskId]);
 
-  const handleReload = async () => {
+  const handleReload = () => {
+    setRetryMessage('');
+    setRetryDialogOpen(true);
+  };
+
+  const handleRetryConfirm = async () => {
     if (!task) return;
+    setRetrying(true);
     try {
-      const updated = await tasksApi.reloadTask(task.id);
+      // Если есть stdout/stderr — добавляем в сообщение
+      let message = retryMessage.trim();
+      if (lastExecResult) {
+        const parts: string[] = [];
+        if (message) parts.push(message);
+        if (lastExecResult.stdout)
+          parts.push(`[Code execution stdout]:\n${lastExecResult.stdout}`);
+        if (lastExecResult.stderr)
+          parts.push(`[Code execution stderr]:\n${lastExecResult.stderr}`);
+        message = parts.join('\n\n');
+      }
+      const updated = await tasksApi.reloadTask(task.id, message || undefined);
       setTask(updated);
+      setRetryDialogOpen(false);
+      setRetryMessage('');
       if (!isTerminal(updated.status) && !intervalRef.current)
         intervalRef.current = setInterval(() => fetchTask(true), POLL_INTERVAL);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Error reloading task');
+      setError(err.response?.data?.message || 'Error retrying task');
+    } finally {
+      setRetrying(false);
+    }
+  };
+
+  const handleCreateFromBase = async () => {
+    if (!task) return;
+    setCreatingFromBase(true);
+    try {
+      const newTask = await tasksApi.createFromBase(task.id, fromBaseMessage.trim() || undefined);
+      setFromBaseDialogOpen(false);
+      setFromBaseMessage('');
+      navigate(`/tasks/${newTask.id}`);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error creating task from base');
+    } finally {
+      setCreatingFromBase(false);
     }
   };
 
@@ -322,6 +373,11 @@ export const TaskPage: React.FC = () => {
           </Tooltip>
           {task && (
             <>
+              <Tooltip title="Create task based on this one"><span>
+                <Button variant="outlined" color="primary" size="small" onClick={() => { setFromBaseMessage(''); setFromBaseDialogOpen(true); }} startIcon={<FromBaseIcon />} disabled={deleting}>
+                  From base
+                </Button>
+              </span></Tooltip>
               <Tooltip title="Retry task"><span>
                 <Button variant="outlined" size="small" onClick={handleReload} startIcon={<ReloadIcon />} disabled={deleting}>Retry</Button>
               </span></Tooltip>
@@ -366,8 +422,16 @@ export const TaskPage: React.FC = () => {
                           color: msg.role === 'user' ? 'white' : 'text.primary',
                         }}>
                           {msg.role === 'assistant' ? (
-                            <Box sx={{ ...mdStyles, '& p': { mt: 0, mb: 0.5 }, fontSize: '0.875rem' }}>
-                              <ReactMarkdown>{msg.content}</ReactMarkdown>
+                            <Box sx={{ '& p': { mt: 0, mb: 0.5 }, fontSize: '0.875rem' }}>
+                              {parseMessageWithCode(msg.content).map((part, partIdx) =>
+                                part.type === 'code' ? (
+                                  <CodeBlock key={partIdx} code={part.content} language={part.language} taskId={taskId} />
+                                ) : (
+                                  <Box key={partIdx} sx={{ ...mdStyles, '& p': { mt: 0, mb: 0.5 }, fontSize: '0.875rem' }}>
+                                    <ReactMarkdown>{part.content}</ReactMarkdown>
+                                  </Box>
+                                )
+                              )}
                             </Box>
                           ) : (
                             <Typography variant="body2">{msg.content}</Typography>
@@ -521,9 +585,21 @@ export const TaskPage: React.FC = () => {
                 {resultExpanded && (
                   <Box sx={{ px: 3, pb: 3 }}>
                     <Divider sx={{ mb: 2 }} />
-                    <Box sx={mdStyles}>
-                      <ReactMarkdown>{task.result}</ReactMarkdown>
-                    </Box>
+                    {parseMessageWithCode(task.result).map((part, idx) =>
+                      part.type === 'code' ? (
+                        <CodeBlock
+                          key={idx}
+                          code={part.content}
+                          language={part.language}
+                          taskId={taskId}
+                          onExecResult={r => setLastExecResult(r ? { stdout: r.stdout, stderr: r.stderr } : null)}
+                        />
+                      ) : (
+                        <Box key={idx} sx={mdStyles}>
+                          <ReactMarkdown>{part.content}</ReactMarkdown>
+                        </Box>
+                      )
+                    )}
                   </Box>
                 )}
               </Paper>
@@ -630,16 +706,23 @@ export const TaskPage: React.FC = () => {
             {selectedStage.description && (
               <Box>
                 <Typography variant="caption" color="text.secondary">Description</Typography>
-                <Box sx={{
-                  mt: 0.5,
-                  '& p': { mt: 0, mb: 0.5 },
-                  '& code': { bgcolor: 'grey.100', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.82rem' },
-                  '& pre': { bgcolor: 'grey.100', p: 1, borderRadius: 1, overflow: 'auto', fontFamily: 'monospace', fontSize: '0.82rem' },
-                  '& pre code': { bgcolor: 'transparent', p: 0 },
-                  '& ul, & ol': { pl: 2.5, mb: 0.5 },
-                  fontSize: '0.875rem',
-                }}>
-                  <ReactMarkdown>{selectedStage.description}</ReactMarkdown>
+                <Box sx={{ mt: 0.5 }}>
+                  {parseMessageWithCode(selectedStage.description).map((part, idx) =>
+                    part.type === 'code' ? (
+                      <CodeBlock key={idx} code={part.content} language={part.language} taskId={taskId} />
+                    ) : (
+                      <Box key={idx} sx={{
+                        '& p': { mt: 0, mb: 0.5 },
+                        '& code': { bgcolor: 'grey.100', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.82rem' },
+                        '& pre': { bgcolor: 'grey.100', p: 1, borderRadius: 1, overflow: 'auto', fontFamily: 'monospace', fontSize: '0.82rem' },
+                        '& pre code': { bgcolor: 'transparent', p: 0 },
+                        '& ul, & ol': { pl: 2.5, mb: 0.5 },
+                        fontSize: '0.875rem',
+                      }}>
+                        <ReactMarkdown>{part.content}</ReactMarkdown>
+                      </Box>
+                    )
+                  )}
                 </Box>
               </Box>
             )}
@@ -804,6 +887,105 @@ export const TaskPage: React.FC = () => {
           )}
         </Paper>
       )}
+
+      {/* Retry dialog */}
+      <Dialog open={retryDialogOpen} onClose={() => !retrying && setRetryDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Retry task</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Please explain what you didn't like about the previous result so the AI can improve its response.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            maxRows={8}
+            value={retryMessage}
+            onChange={e => setRetryMessage(e.target.value)}
+            placeholder="Describe your feedback..."
+            disabled={retrying}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                handleRetryConfirm();
+              }
+            }}
+          />
+          {lastExecResult && (lastExecResult.stdout || lastExecResult.stderr) && (
+            <Box sx={{ bgcolor: 'grey.50', borderRadius: 1, p: 2, border: '1px solid', borderColor: 'grey.300' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                ⚙ Code execution output will be attached automatically:
+              </Typography>
+              {lastExecResult.stdout && (
+                <Box sx={{ mb: 1 }}>
+                  <Typography variant="caption" fontWeight="bold" color="success.dark">stdout:</Typography>
+                  <Box component="pre" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', bgcolor: '#e8f5e9', p: 1, borderRadius: 1, maxHeight: 120, overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.5, m: 0 }}>
+                    {lastExecResult.stdout}
+                  </Box>
+                </Box>
+              )}
+              {lastExecResult.stderr && (
+                <Box>
+                  <Typography variant="caption" fontWeight="bold" color="error.dark">stderr:</Typography>
+                  <Box component="pre" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', bgcolor: '#ffebee', p: 1, borderRadius: 1, maxHeight: 120, overflowY: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-word', mt: 0.5, m: 0 }}>
+                    {lastExecResult.stderr}
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setRetryDialogOpen(false)} disabled={retrying}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleRetryConfirm}
+            disabled={retrying}
+            startIcon={retrying ? <CircularProgress size={16} /> : <ReloadIcon />}
+          >
+            {retrying ? 'Retrying...' : 'Retry'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Create from base dialog */}
+      <Dialog open={fromBaseDialogOpen} onClose={() => !creatingFromBase && setFromBaseDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Create task based on this one</DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            What would you like to add or change for the new task? The AI will use the current task as a base and apply your instructions.
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            maxRows={8}
+            value={fromBaseMessage}
+            onChange={e => setFromBaseMessage(e.target.value)}
+            placeholder="Describe what to add or update..."
+            disabled={creatingFromBase}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                handleCreateFromBase();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setFromBaseDialogOpen(false)} disabled={creatingFromBase}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleCreateFromBase}
+            disabled={creatingFromBase}
+            startIcon={creatingFromBase ? <CircularProgress size={16} /> : <FromBaseIcon />}
+          >
+            {creatingFromBase ? 'Creating...' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

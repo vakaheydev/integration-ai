@@ -30,4 +30,8 @@ public class DocumentStorageService {
     public void deleteDocument(String id) {
         swaggerDocumentRepository.deleteById(id);
     }
+
+    public void deleteAllByUserId(String userId) {
+        swaggerDocumentRepository.deleteByUserId(userId);
+    }
 }

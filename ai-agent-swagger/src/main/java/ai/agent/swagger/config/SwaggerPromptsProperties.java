@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 public class SwaggerPromptsProperties {
 
     private Roles roles;
+    private Outputs outputs;
     private Actions actions;
 
     @Data
@@ -19,10 +20,22 @@ public class SwaggerPromptsProperties {
     }
 
     @Data
+    public static class Outputs {
+        private String text;
+        private String yesNo;
+        private String analysisPlan;
+        private String code;
+         private String test;
+        private String analysisResult;
+    }
+
+    @Data
     public static class Actions {
         private VectorSearch vectorSearch;
         private DocumentChat documentChat;
         private HandleTask handleTask;
+        private CodeTask codeTask;
+        private TestTask testTask;
 
         @Data
         public static class DocumentChat {
@@ -39,6 +52,7 @@ public class SwaggerPromptsProperties {
 
         @Data
         public static class HandleTask {
+            private String reviewPreviousResult;
             private String reviewTaskResult;
             private String analyzeTask;
             private String retryAnalyzeTask;
@@ -58,6 +72,36 @@ public class SwaggerPromptsProperties {
             private String handleTaskAnalysisAfterErrorGeneral;
             // chat
             private String taskChat;
+        }
+
+        @Data
+        public static class CodeTask {
+            private String analyzeTask;
+            private String retryAnalyzeTask;
+            private String handleTaskAnalysis;
+            private String retryHandleTaskAnalysis;
+            private String handleTaskAnalysisAfterError;
+            // general (no document) variants
+            private String analyzeTaskGeneral;
+            private String retryAnalyzeTaskGeneral;
+            private String handleTaskAnalysisGeneral;
+            private String retryHandleTaskAnalysisGeneral;
+            private String handleTaskAnalysisAfterErrorGeneral;
+        }
+
+        @Data
+        public static class TestTask {
+            private String analyzeTask;
+            private String retryAnalyzeTask;
+            private String handleTaskAnalysis;
+            private String retryHandleTaskAnalysis;
+            private String handleTaskAnalysisAfterError;
+            // general (no document) variants
+            private String analyzeTaskGeneral;
+            private String retryAnalyzeTaskGeneral;
+            private String handleTaskAnalysisGeneral;
+            private String retryHandleTaskAnalysisGeneral;
+            private String handleTaskAnalysisAfterErrorGeneral;
         }
     }
 }

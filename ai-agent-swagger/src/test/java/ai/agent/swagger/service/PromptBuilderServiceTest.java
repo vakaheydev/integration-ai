@@ -90,12 +90,15 @@ public class PromptBuilderServiceTest {
     @Test
     @DisplayName("FT-005: валидный Swagger content передаётся в upload-промпт без ошибок")
     public void testGetDocumentChatUpload_validSummary_returnsPrompt() {
+        String infoSummary = "API INFO:\n  Title: User API\n  Version: 1.0\nSERVERS:\n  - https://api.example.com";
         String methodSummary = "GET /api/users: List users\nPOST /api/users: Create user\n";
 
-        String prompt = promptBuilderService.getDocumentChatUpload(methodSummary);
+        String prompt = promptBuilderService.getDocumentChatUpload(infoSummary, methodSummary);
 
         assertNotNull(prompt);
         assertTrue(prompt.contains("GET /api/users"), "Должен содержать summary методов");
+        assertTrue(prompt.contains("User API"), "Должен содержать info summary");
         assertFalse(prompt.contains("${swaggerMethodSummary}"), "Плейсхолдер не должен остаться");
+        assertFalse(prompt.contains("${swaggerInfoSummary}"), "Плейсхолдер не должен остаться");
     }
 }

@@ -89,6 +89,11 @@ export const documentsApi = {
     await apiClient.delete(`swagger/${documentId}`);
   },
 
+  // Удаление всех документов
+  deleteAllDocuments: async (): Promise<void> => {
+    await apiClient.delete('swagger/deleteAll');
+  },
+
   // Поиск документов
   searchDocuments: async (query: string): Promise<SearchResponse> => {
     const response = await apiClient.post<SearchResponse>('swagger/search', {

@@ -7,14 +7,16 @@ export interface MessagePart {
 }
 
 /**
- * Парсит сообщение и разделяет на текстовые части и блоки кода
- * Ищет паттерн: <<<CODE_START language=python>>> код <<<CODE_END>>>
+ * Парсит сообщение и разделяет на текстовые части и блоки кода.
+ * Поддерживает два формата:
+ *   1) <<<CODE_START language=python>>> код <<<CODE_END>>>
+ *   2) ```python  код  ```
  */
 export const parseMessageWithCode = (message: string): MessagePart[] => {
   const parts: MessagePart[] = [];
 
-  // Регулярное выражение для поиска блоков кода
-  const codeBlockRegex = /<<<CODE_START(?:\s+language=(\w+))?>>>([\s\S]*?)<<<CODE_END>>>/g;
+  // Объединённое регулярное выражение: сначала <<<CODE_START>>>, потом ```lang
+  const codeBlockRegex = /<<<CODE_START(?:\s+language=(\w+))?>>>([\s\S]*?)<<<CODE_END>>>|```(\w+)?\n([\s\S]*?)```/g;
 
   let lastIndex = 0;
   let match;
@@ -24,22 +26,18 @@ export const parseMessageWithCode = (message: string): MessagePart[] => {
     if (match.index > lastIndex) {
       const textBefore = message.substring(lastIndex, match.index).trim();
       if (textBefore) {
-        parts.push({
-          type: 'text',
-          content: textBefore,
-        });
+        parts.push({ type: 'text', content: textBefore });
       }
     }
 
-    // Добавляем блок кода
-    const language = match[1] || 'plaintext'; // язык из language=python
-    const code = match[2].trim(); // код между маркерами
+    // match[1] — язык из <<<CODE_START language=...>>>
+    // match[2] — код из <<<CODE_START>>>
+    // match[3] — язык из ```lang
+    // match[4] — код из ```
+    const language = match[1] || match[3] || 'plaintext';
+    const code = (match[2] ?? match[4] ?? '').trim();
 
-    parts.push({
-      type: 'code',
-      content: code,
-      language: language,
-    });
+    parts.push({ type: 'code', content: code, language });
 
     lastIndex = codeBlockRegex.lastIndex;
   }

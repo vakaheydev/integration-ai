@@ -105,13 +105,20 @@ public class SwaggerServiceAi {
 
     public Map<String, String> uploadSwagger(String swaggerContent, String userId, String name) {
         String swaggerMethodSummary = swaggerServiceDocument.resolveSwaggerMethodSummary(swaggerContent);
-        String swaggerSummaryPrompt = promptBuilderService.getDocumentChatUpload(swaggerMethodSummary);
-        String swaggerSummaryResponse = aiChatService.chat(userId, swaggerSummaryPrompt);
+        String swaggerInfoSummary = swaggerServiceDocument.resolveSwaggerInfoSummary(swaggerContent);
+
+        String swaggerSummaryPrompt = promptBuilderService.getDocumentChatUpload(swaggerInfoSummary, swaggerMethodSummary);
+        String aiSummary = aiChatService.chat(userId, swaggerSummaryPrompt);
+
+        // documentSummary = структурированная инфа (info/servers/security) + AI-резюме
+        String documentSummary = swaggerInfoSummary.isBlank()
+                ? aiSummary
+                : swaggerInfoSummary + "\n\n" + aiSummary;
 
         String documentId = swaggerServiceDocument.saveDocument(
-                swaggerSummaryResponse, swaggerMethodSummary, swaggerContent, userId, name);
+                documentSummary, swaggerMethodSummary, swaggerContent, userId, name);
 
-        return Map.of("swagger_summary", swaggerSummaryResponse, "document_id", documentId);
+        return Map.of("swagger_summary", documentSummary, "document_id", documentId);
     }
 }
 

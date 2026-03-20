@@ -36,6 +36,8 @@
         <spring.security.version>6.5.0</spring.security.version>
         <langgraph4j.version>1.8.7</langgraph4j.version>
         <caffeine.version>3.2.0</caffeine.version>
+        <docker-java.version>3.4.1</docker-java.version>
+        <httpclient5.version>5.4.1</httpclient5.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
@@ -198,6 +200,26 @@
                 <groupId>com.github.ben-manes.caffeine</groupId>
                 <artifactId>caffeine</artifactId>
                 <version>${caffeine.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java-core</artifactId>
+                <version>${docker-java.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java-transport-httpclient5</artifactId>
+                <version>${docker-java.version}</version>
+            </dependency>
+
+            <!-- Принудительно поднимаем версию httpclient5 — docker-java тянет 5.0.3,
+                 а Spring Boot 3.5.x требует 5.4.x (TlsSocketStrategy) -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>${httpclient5.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

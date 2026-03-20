@@ -1,6 +1,7 @@
 package ai.agent.swagger.service;
 
 import ai.agent.swagger.config.SwaggerPromptsProperties;
+import ai.agent.swagger.model.TaskType;
 import org.apache.commons.text.StringSubstitutor;
 import org.springframework.stereotype.Service;
 
@@ -20,6 +21,37 @@ public class PromptBuilderService {
 
     public String getProgrammerRolePrompt(String prompt) {
         return props.getRoles().getProgrammer() + ".\n" + prompt;
+    }
+
+    // ── output rule accessors ─────────────────────────────────────────────────
+
+    private String outputText()           { return props.getOutputs().getText(); }
+    private String outputYesNo()          { return props.getOutputs().getYesNo(); }
+    private String outputAnalysisPlan()   { return props.getOutputs().getAnalysisPlan(); }
+    private String outputCode()           { return props.getOutputs().getCode(); }
+    private String outputTest()           { return props.getOutputs().getTest(); }
+    private String outputAnalysisResult() { return props.getOutputs().getAnalysisResult(); }
+
+    /**
+     * Возвращает ожидаемые output rules для конкретного типа таски.
+     * Используется в review-стадии для проверки формата результата.
+     */
+    public String getExpectedOutputRules(TaskType taskType) {
+        if (taskType == null) return outputAnalysisResult();
+        return switch (taskType) {
+            case CODE -> outputCode();
+            case TEST -> outputTest();
+            case ANALYZE -> outputAnalysisResult();
+        };
+    }
+
+    public String getReviewPreviousResultPrompt(String taskDescription, String previousResult, String userMessage) {
+        String template = props.getActions().getHandleTask().getReviewPreviousResult();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription,
+                "previousResult", previousResult != null ? previousResult : "",
+                "userMessage", userMessage != null ? userMessage : ""));
+        return getAnalystRolePrompt(prompt);
     }
 
     public String getVectorSearchNotFoundPrompt(String userPrompt) {
@@ -45,8 +77,16 @@ public class PromptBuilderService {
     }
 
     public String getHandleTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools) {
+        return getHandleTaskAnalyzePrompt(taskDescription, documentId, documentSummary, documentMethodSummary, availableTools, null, null);
+    }
+
+    public String getHandleTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools, String previousResult, String userMessage) {
         String template = props.getActions().getHandleTask().getAnalyzeTask();
-        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "availableTools", availableTools, "swaggerSummary", documentSummary, "swaggerMethodSummary", documentMethodSummary));
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription, "documentId", documentId,
+                "availableTools", availableTools, "swaggerSummary", documentSummary,
+                "swaggerMethodSummary", documentMethodSummary,
+                "restartContext", buildRestartContext(previousResult, userMessage)));
         return getAnalystRolePrompt(prompt);
     }
 
@@ -75,8 +115,15 @@ public class PromptBuilderService {
     }
 
     public String getReviewHandleAnalysisPrompt(String taskDescription, String taskResult) {
+        return getReviewHandleAnalysisPrompt(taskDescription, taskResult, "");
+    }
+
+    public String getReviewHandleAnalysisPrompt(String taskDescription, String taskResult, String expectedOutputRules) {
         String template = props.getActions().getHandleTask().getReviewHandleAnalysis();
-        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "taskResult", taskResult));
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription,
+                "taskResult", taskResult,
+                "expectedOutputRules", expectedOutputRules != null ? expectedOutputRules : ""));
         return getAnalystRolePrompt(prompt);
     }
 
@@ -95,8 +142,14 @@ public class PromptBuilderService {
     // ── General (no document) variants ──────────────────────────────────────
 
     public String getHandleTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools) {
+        return getHandleTaskAnalyzeGeneralPrompt(taskDescription, availableTools, null, null);
+    }
+
+    public String getHandleTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools, String previousResult, String userMessage) {
         String template = props.getActions().getHandleTask().getAnalyzeTaskGeneral();
-        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "availableTools", availableTools));
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription, "availableTools", availableTools,
+                "restartContext", buildRestartContext(previousResult, userMessage)));
         return getAnalystRolePrompt(prompt);
     }
 
@@ -110,6 +163,158 @@ public class PromptBuilderService {
         String template = props.getActions().getHandleTask().getHandleTaskAnalysisGeneral();
         String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "analysis", analysis));
         return getAnalystRolePrompt(prompt);
+    }
+
+    // ── Code task variants (programmer role) ─────────────────────────────────
+
+    public String getCodeTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools) {
+        return getCodeTaskAnalyzePrompt(taskDescription, documentId, documentSummary, documentMethodSummary, availableTools, null, null);
+    }
+
+    public String getCodeTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools, String previousResult, String userMessage) {
+        String template = props.getActions().getCodeTask().getAnalyzeTask();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription, "documentId", documentId,
+                "availableTools", availableTools, "swaggerSummary", documentSummary,
+                "swaggerMethodSummary", documentMethodSummary,
+                "restartContext", buildRestartContext(previousResult, userMessage)));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getCodeTaskRetryPrompt(String taskDescription, String documentId, String feedback, String documentSummary, String documentMethodSummary, String availableTools) {
+        String template = props.getActions().getCodeTask().getRetryAnalyzeTask();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "feedback", feedback, "availableTools", availableTools, "swaggerSummary", documentSummary, "swaggerMethodSummary", documentMethodSummary));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getCodeTaskExecutePrompt(String taskDescription, String documentId, String analysis) {
+        String template = props.getActions().getCodeTask().getHandleTaskAnalysis();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "analysis", analysis));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getCodeTaskExecuteAfterErrorPrompt(String taskDescription, String documentId, String analysis, String errorMessage) {
+        String template = props.getActions().getCodeTask().getHandleTaskAnalysisAfterError();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "analysis", analysis, "errorMessage", errorMessage != null ? errorMessage : "unknown error"));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getCodeTaskRetryExecutePrompt(String taskDescription, String documentId, String analysis, String feedback) {
+        String template = props.getActions().getCodeTask().getRetryHandleTaskAnalysis();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "analysis", analysis, "feedback", feedback));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getCodeTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools) {
+        return getCodeTaskAnalyzeGeneralPrompt(taskDescription, availableTools, null, null);
+    }
+
+    public String getCodeTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools, String previousResult, String userMessage) {
+        String template = props.getActions().getCodeTask().getAnalyzeTaskGeneral();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription, "availableTools", availableTools,
+                "restartContext", buildRestartContext(previousResult, userMessage)));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getCodeTaskRetryGeneralPrompt(String taskDescription, String feedback, String availableTools) {
+        String template = props.getActions().getCodeTask().getRetryAnalyzeTaskGeneral();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "feedback", feedback, "availableTools", availableTools));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getCodeTaskExecuteGeneralPrompt(String taskDescription, String analysis) {
+        String template = props.getActions().getCodeTask().getHandleTaskAnalysisGeneral();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "analysis", analysis));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getCodeTaskExecuteAfterErrorGeneralPrompt(String taskDescription, String analysis, String errorMessage) {
+        String template = props.getActions().getCodeTask().getHandleTaskAnalysisAfterErrorGeneral();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "analysis", analysis, "errorMessage", errorMessage != null ? errorMessage : "unknown error"));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getCodeTaskRetryExecuteGeneralPrompt(String taskDescription, String analysis, String feedback) {
+        String template = props.getActions().getCodeTask().getRetryHandleTaskAnalysisGeneral();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "analysis", analysis, "feedback", feedback));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    // ── Test task variants (programmer role) ─────────────────────────────────
+
+    public String getTestTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools) {
+        return getTestTaskAnalyzePrompt(taskDescription, documentId, documentSummary, documentMethodSummary, availableTools, null, null);
+    }
+
+    public String getTestTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools, String previousResult, String userMessage) {
+        String template = props.getActions().getTestTask().getAnalyzeTask();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription, "documentId", documentId,
+                "availableTools", availableTools, "swaggerSummary", documentSummary,
+                "swaggerMethodSummary", documentMethodSummary,
+                "restartContext", buildRestartContext(previousResult, userMessage)));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getTestTaskRetryPrompt(String taskDescription, String documentId, String feedback, String documentSummary, String documentMethodSummary, String availableTools) {
+        String template = props.getActions().getTestTask().getRetryAnalyzeTask();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "feedback", feedback, "availableTools", availableTools, "swaggerSummary", documentSummary, "swaggerMethodSummary", documentMethodSummary));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getTestTaskExecutePrompt(String taskDescription, String documentId, String analysis) {
+        String template = props.getActions().getTestTask().getHandleTaskAnalysis();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "analysis", analysis));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getTestTaskExecuteAfterErrorPrompt(String taskDescription, String documentId, String analysis, String errorMessage) {
+        String template = props.getActions().getTestTask().getHandleTaskAnalysisAfterError();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "analysis", analysis, "errorMessage", errorMessage != null ? errorMessage : "unknown error"));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getTestTaskRetryExecutePrompt(String taskDescription, String documentId, String analysis, String feedback) {
+        String template = props.getActions().getTestTask().getRetryHandleTaskAnalysis();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "documentId", documentId, "analysis", analysis, "feedback", feedback));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getTestTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools) {
+        return getTestTaskAnalyzeGeneralPrompt(taskDescription, availableTools, null, null);
+    }
+
+    public String getTestTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools, String previousResult, String userMessage) {
+        String template = props.getActions().getTestTask().getAnalyzeTaskGeneral();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription, "availableTools", availableTools,
+                "restartContext", buildRestartContext(previousResult, userMessage)));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getTestTaskRetryGeneralPrompt(String taskDescription, String feedback, String availableTools) {
+        String template = props.getActions().getTestTask().getRetryAnalyzeTaskGeneral();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "feedback", feedback, "availableTools", availableTools));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getTestTaskExecuteGeneralPrompt(String taskDescription, String analysis) {
+        String template = props.getActions().getTestTask().getHandleTaskAnalysisGeneral();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "analysis", analysis));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getTestTaskExecuteAfterErrorGeneralPrompt(String taskDescription, String analysis, String errorMessage) {
+        String template = props.getActions().getTestTask().getHandleTaskAnalysisAfterErrorGeneral();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "analysis", analysis, "errorMessage", errorMessage != null ? errorMessage : "unknown error"));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getTestTaskRetryExecuteGeneralPrompt(String taskDescription, String analysis, String feedback) {
+        String template = props.getActions().getTestTask().getRetryHandleTaskAnalysisGeneral();
+        String prompt = replacePrompt(template, Map.of("taskDescription", taskDescription, "analysis", analysis, "feedback", feedback));
+        return getProgrammerRolePrompt(prompt);
     }
 
     public String getRetryHandleTaskAnalysisGeneralPrompt(String taskDescription, String analysis, String feedback) {
@@ -147,9 +352,11 @@ public class PromptBuilderService {
         return getAnalystRolePrompt(prompt);
     }
 
-    public String getDocumentChatUpload(String swaggerMethodSummary) {
+    public String getDocumentChatUpload(String swaggerInfoSummary, String swaggerMethodSummary) {
         String template = props.getActions().getDocumentChat().getUpload();
-        String prompt = replacePrompt(template, Map.of("swaggerMethodSummary", swaggerMethodSummary));
+        String prompt = replacePrompt(template, Map.of(
+                "swaggerInfoSummary", swaggerInfoSummary != null ? swaggerInfoSummary : "",
+                "swaggerMethodSummary", swaggerMethodSummary));
         return getAnalystRolePrompt(prompt);
     }
 
@@ -165,8 +372,40 @@ public class PromptBuilderService {
         return getAnalystRolePrompt(prompt);
     }
 
+    /**
+     * Формирует блок контекста рестарта для промпта.
+     * Если таска рестартуется с previousResult и/или userMessage — ИИ получает эту информацию
+     * и учитывает её при составлении нового плана.
+     */
+    private String buildRestartContext(String previousResult, String userMessage) {
+        if ((previousResult == null || previousResult.isBlank())
+                && (userMessage == null || userMessage.isBlank())) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("<<<RESTART_CONTEXT>>>\n");
+        sb.append("This task is being re-executed. A previous attempt was made but was unsatisfactory.\n");
+        if (previousResult != null && !previousResult.isBlank()) {
+            sb.append("PREVIOUS_RESULT:\n").append(previousResult).append("\n");
+        }
+        if (userMessage != null && !userMessage.isBlank()) {
+            sb.append("USER_FEEDBACK:\n").append(userMessage).append("\n");
+        }
+        sb.append("<<<END_RESTART_CONTEXT>>>\n");
+        sb.append("IMPORTANT: Take the RESTART_CONTEXT into account. Fix what the user found unsatisfactory.\n");
+        return sb.toString();
+    }
+
     private String replacePrompt(String prompt, Map<String, String> placeHolders) {
-        StringSubstitutor sub = new StringSubstitutor(placeHolders);
+        // Объединяем пользовательские плейсхолдеры с output rules
+        var all = new java.util.HashMap<>(placeHolders);
+        all.put("outputRules.text",           outputText());
+        all.put("outputRules.yesNo",          outputYesNo());
+        all.put("outputRules.analysisPlan",   outputAnalysisPlan());
+        all.put("outputRules.code",           outputCode());
+        all.put("outputRules.test",           outputTest());
+        all.put("outputRules.analysisResult", outputAnalysisResult());
+        StringSubstitutor sub = new StringSubstitutor(all);
         return sub.replace(prompt);
     }
 }
