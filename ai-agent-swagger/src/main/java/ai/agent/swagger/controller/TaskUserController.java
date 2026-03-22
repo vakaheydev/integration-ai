@@ -1,6 +1,8 @@
 package ai.agent.swagger.controller;
 
+import ai.agent.swagger.config.AiModelProperties;
 import ai.agent.swagger.model.ChatRequest;
+import ai.agent.swagger.model.ResolveInputRequest;
 import ai.agent.swagger.model.Task;
 import ai.agent.swagger.model.CreateTaskRequest;
 import ai.agent.swagger.model.RestartTaskRequest;
@@ -12,13 +14,7 @@ import ai.agent.swagger.service.executor.CodeExtractor;
 import ai.agent.swagger.service.executor.PythonCodeExecutorService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
@@ -30,16 +26,25 @@ public class TaskUserController {
     private final TaskService taskService;
     private final TaskServiceAi taskServiceAi;
     private final PythonCodeExecutorService pythonCodeExecutorService;
+    private final AiModelProperties aiModelProperties;
 
     public TaskUserController(TaskService taskService, TaskServiceAi taskServiceAi,
-                              PythonCodeExecutorService pythonCodeExecutorService) {
+                              PythonCodeExecutorService pythonCodeExecutorService,
+                              AiModelProperties aiModelProperties) {
         this.taskService = taskService;
         this.taskServiceAi = taskServiceAi;
         this.pythonCodeExecutorService = pythonCodeExecutorService;
+        this.aiModelProperties = aiModelProperties;
     }
 
     @PostMapping
-    public ResponseEntity<Task> createTask(@Valid @RequestBody CreateTaskRequest request) {
+    public ResponseEntity<?> createTask(@Valid @RequestBody CreateTaskRequest request) {
+        // Валидируем и резолвим модель (null → дефолтная)
+        try {
+            request.setModelName(aiModelProperties.resolveModel(request.getModelName()));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
         String userId = SecurityUtils.currentUser().getId();
         Task task = taskService.createTask(null, userId, request);
         return ResponseEntity.ok(task);
@@ -72,6 +77,18 @@ public class TaskUserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/{id}/subtasks")
+    public ResponseEntity<?> getSubtasks(@PathVariable("id") String id) {
+        return taskService.getTaskById(id)
+                .map(task -> {
+                    if (!task.getUserId().equals(SecurityUtils.currentUser().getId())) {
+                        return ResponseEntity.status(403).body("Access restricted");
+                    }
+                    return ResponseEntity.ok(taskService.getSubtasks(id));
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @PostMapping("/{id}/restart")
     public ResponseEntity<?> restartTask(@PathVariable("id") String id,
                                          @RequestBody(required = false) RestartTaskRequest request) {
@@ -83,6 +100,47 @@ public class TaskUserController {
                     String userMessage = request != null ? request.getUserMessage() : null;
                     Task restarted = taskService.restartTask(id, task.getResult(), userMessage);
                     return ResponseEntity.ok(restarted);
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/resolve_input")
+    public ResponseEntity<?> resolveInput(@PathVariable("id") String id,
+                                          @Valid @RequestBody ResolveInputRequest request) {
+        return taskService.getTaskById(id)
+                .map(task -> {
+                    if (!task.getUserId().equals(SecurityUtils.currentUser().getId())) {
+                        return ResponseEntity.status(403).body("Access restricted");
+                    }
+                    try {
+                        Task resolved = taskService.resolveUserInput(id, request.getMessage());
+                        return ResponseEntity.ok(resolved);
+                    } catch (IllegalStateException e) {
+                        return ResponseEntity.badRequest().body(e.getMessage());
+                    }
+                })
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/approve")
+    public ResponseEntity<?> approveTask(@PathVariable("id") String id,
+                                          @RequestParam("status") boolean status,
+                                          @RequestBody(required = false) Map<String, String> body) {
+        return taskService.getTaskById(id)
+                .map(task -> {
+                    if (!task.getUserId().equals(SecurityUtils.currentUser().getId())) {
+                        return ResponseEntity.status(403).body("Access restricted");
+                    }
+                    String message = body != null ? body.get("message") : null;
+                    if (!status && (message == null || message.isBlank())) {
+                        return ResponseEntity.badRequest().body("Message is required when disapproving");
+                    }
+                    try {
+                        Task result = taskService.approveTask(id, status, message);
+                        return ResponseEntity.ok(result);
+                    } catch (IllegalStateException e) {
+                        return ResponseEntity.badRequest().body(e.getMessage());
+                    }
                 })
                 .orElse(ResponseEntity.notFound().build());
     }

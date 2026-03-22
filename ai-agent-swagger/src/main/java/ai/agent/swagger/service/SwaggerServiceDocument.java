@@ -106,7 +106,14 @@ public class SwaggerServiceDocument {
             sb.append("API INFO:\n");
             if (info.getTitle() != null)       sb.append("  Title: ").append(info.getTitle()).append("\n");
             if (info.getVersion() != null)     sb.append("  Version: ").append(info.getVersion()).append("\n");
-            if (info.getDescription() != null) sb.append("  Description: ").append(info.getDescription()).append("\n");
+            if (info.getDescription() != null) {
+                String description = info.getDescription();
+                int maxLength = 200;
+                if (description.length() > maxLength) {
+                    description = description.substring(0, maxLength) + "... [описание обрезано, оригинал слишком длинный]";
+                }
+                sb.append("  Description: ").append(description).append("\n");
+            }
             if (info.getContact() != null && info.getContact().getEmail() != null)
                 sb.append("  Contact: ").append(info.getContact().getEmail()).append("\n");
         }

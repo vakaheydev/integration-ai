@@ -1,8 +1,9 @@
 import axios from 'axios';
-import type { Task, CreateTaskRequest } from '../models/types';
+import type { Task, CreateTaskRequest, ModelsResponse } from '../models/types';
 import { authStorage } from '../services/authStorage';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_PUBLIC_URL = import.meta.env.VITE_API_BASE_LOGIN_URL; // /api (no auth)
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -10,6 +11,15 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
 });
+
+// Public client (no auth) for endpoints like /api/models
+const publicClient = axios.create({
+  baseURL: API_PUBLIC_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 
 // Add auth token to every request
 apiClient.interceptors.request.use(
@@ -80,8 +90,8 @@ export const tasksApi = {
   },
 
   // Chat with AI about a task
-  chatWithTask: async (taskId: string, query: string, role: string): Promise<any> => {
-    const response = await apiClient.post(`tasks/${taskId}/chat`, { query, role });
+  chatWithTask: async (taskId: string, query: string, role: string, model?: string): Promise<any> => {
+    const response = await apiClient.post(`tasks/${taskId}/chat`, { query, role, ...(model ? { model } : {}) });
     return response.data;
   },
 
@@ -100,6 +110,34 @@ export const tasksApi = {
   // Create a new task based on an existing one
   createFromBase: async (taskId: string, userMessage?: string): Promise<Task> => {
     const response = await apiClient.post<Task>(`tasks/fromBase/${taskId}`, { userMessage: userMessage ?? '' });
+    return response.data;
+  },
+
+  // Resolve user input request from AI
+  resolveInput: async (taskId: string, message: string): Promise<Task> => {
+    const response = await apiClient.post<Task>(`tasks/${taskId}/resolve_input`, { message });
+    return response.data;
+  },
+
+  // Approve or disapprove a task (WAITING_USER_APPROVE)
+  approveTask: async (taskId: string, status: boolean, message?: string): Promise<Task> => {
+    const response = await apiClient.post<Task>(
+      `tasks/${taskId}/approve`,
+      message ? { message } : {},
+      { params: { status } }
+    );
+    return response.data;
+  },
+
+  // Get subtasks for a parent task
+  getSubtasks: async (taskId: string): Promise<Task[]> => {
+    const response = await apiClient.get<Task[]>(`tasks/${taskId}/subtasks`);
+    return response.data;
+  },
+
+  // Get available AI models (public endpoint, no auth)
+  getModels: async (): Promise<ModelsResponse> => {
+    const response = await publicClient.get<ModelsResponse>('/models');
     return response.data;
   },
 };

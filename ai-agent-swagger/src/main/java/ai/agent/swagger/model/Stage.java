@@ -21,6 +21,21 @@ public class Stage {
     private Instant instantStart;
     private Instant instantEnd;
 
+    /** Вопрос ИИ к пользователю (заполняется при WAITING_USER_INPUT) */
+    private String aiQuestion;
+
+    /** Ответ пользователя на вопрос ИИ */
+    private String userInputResponse;
+
+    /** Описание того, что нужно подтвердить (заполняется при WAITING_USER_APPROVE) */
+    private String approveDescription;
+
+    /** Комментарий пользователя при отклонении */
+    private String approveMessage;
+
+    /** Результат выполнения стейджа (код, ответ ИИ и т.д.) */
+    private String result;
+
     public Duration getDuration() {
         if (instantStart == null || instantEnd == null) {
             return null;

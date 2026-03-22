@@ -27,7 +27,11 @@ public class SwaggerService {
     }
 
     public String chatByDocumentId(String documentId, String userId, String query, String role) {
-        return swaggerServiceAi.chatByDocumentId(documentId, userId, query, role);
+        return swaggerServiceAi.chatByDocumentId(documentId, userId, query, role, null);
+    }
+
+    public String chatByDocumentId(String documentId, String userId, String query, String role, String modelName) {
+        return swaggerServiceAi.chatByDocumentId(documentId, userId, query, role, modelName);
     }
 
     public Map<String, String> uploadSwagger(String swaggerContent, String userId, String name) {

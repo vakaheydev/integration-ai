@@ -44,7 +44,7 @@ public class AnalyzeTaskGraphHandler implements TaskGraphNodeHandler {
                     task.getDescription(), availableTools,
                     task.getPreviousResult(), task.getUserMessage());
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
     }
 
     @Override
@@ -58,7 +58,7 @@ public class AnalyzeTaskGraphHandler implements TaskGraphNodeHandler {
         } else {
             prompt = promptBuilderService.getHandleTaskRetryGeneralPrompt(task.getDescription(), feedback, availableTools);
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
     }
 
     @Override
@@ -69,7 +69,7 @@ public class AnalyzeTaskGraphHandler implements TaskGraphNodeHandler {
         } else {
             prompt = promptBuilderService.getHandleTaskExecuteGeneralPrompt(task.getDescription(), analysis);
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
     }
 
     @Override
@@ -82,7 +82,7 @@ public class AnalyzeTaskGraphHandler implements TaskGraphNodeHandler {
             prompt = promptBuilderService.getHandleTaskExecuteAfterErrorGeneralPrompt(
                     task.getDescription(), analysis, errorMessage);
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
     }
 
     @Override
@@ -95,7 +95,7 @@ public class AnalyzeTaskGraphHandler implements TaskGraphNodeHandler {
             prompt = promptBuilderService.getRetryHandleTaskAnalysisGeneralPrompt(
                     task.getDescription(), analysis, feedback);
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

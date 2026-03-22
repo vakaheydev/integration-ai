@@ -32,6 +32,7 @@ import {
   Delete as DeleteIcon,
   Add as AddIcon,
   DeleteSweep as DeleteAllIcon,
+  QuestionAnswer as QuestionAnswerIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { tasksApi } from '../api/tasksApi';
@@ -43,6 +44,9 @@ const statusConfig: Record<string, { label: string; color: 'default' | 'primary'
   CREATED:   { label: 'Created',   color: 'default',  icon: <ScheduleIcon fontSize="small" /> },
   RUNNING:   { label: 'Running',   color: 'primary',  icon: <PlayArrowIcon fontSize="small" /> },
   WAITING:   { label: 'Waiting',   color: 'warning',  icon: <HourglassIcon fontSize="small" /> },
+  WAITING_USER_INPUT: { label: 'Needs input', color: 'warning', icon: <QuestionAnswerIcon fontSize="small" /> },
+  WAITING_USER_APPROVE: { label: 'Needs approval', color: 'warning', icon: <QuestionAnswerIcon fontSize="small" /> },
+  WAITING_SUBTASK: { label: 'Subtask running', color: 'primary', icon: <HourglassIcon fontSize="small" /> },
   COMPLETED: { label: 'Completed', color: 'success',  icon: <CheckCircleIcon fontSize="small" /> },
   FAILED:    { label: 'Failed',    color: 'error',    icon: <ErrorIcon fontSize="small" /> },
 };
@@ -51,6 +55,8 @@ const typeLabels: Record<string, string> = {
   ANALYZE: 'Analysis',
   CODE:    'Code',
   TEST:    'Tests',
+  ANALYZE_CODE: 'Analysis + Code',
+  ANALYZE_TEST: 'Analysis + Tests',
 };
 
 export const TaskList: React.FC<{ documents: SwaggerDocument[] }> = ({ documents }) => {
@@ -152,7 +158,7 @@ export const TaskList: React.FC<{ documents: SwaggerDocument[] }> = ({ documents
 
         {!loading && tasks.length > 0 && (
           <List disablePadding>
-            {tasks.map((task, idx) => {
+            {tasks.filter(t => !t.parentTaskId).map((task, idx) => {
               const cfg = statusConfig[task.status] ?? { label: task.status, color: 'default' as const, icon: <ScheduleIcon fontSize="small" /> };
               const busy = actionLoading === task.id;
               return (

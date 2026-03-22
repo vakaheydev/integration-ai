@@ -44,7 +44,7 @@ public class TestTaskGraphHandler implements TaskGraphNodeHandler {
                     task.getDescription(), availableTools,
                     task.getPreviousResult(), task.getUserMessage());
         }
-        return aiChatService.chat(prompt);
+        return aiChatService.chatStateless(prompt, task.getModelName());
     }
 
     @Override
@@ -58,7 +58,7 @@ public class TestTaskGraphHandler implements TaskGraphNodeHandler {
         } else {
             prompt = promptBuilderService.getTestTaskRetryGeneralPrompt(task.getDescription(), feedback, availableTools);
         }
-        return aiChatService.chat(prompt);
+        return aiChatService.chatStateless(prompt, task.getModelName());
     }
 
     @Override
@@ -69,7 +69,7 @@ public class TestTaskGraphHandler implements TaskGraphNodeHandler {
         } else {
             prompt = promptBuilderService.getTestTaskExecuteGeneralPrompt(task.getDescription(), analysis);
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
     }
 
     @Override
@@ -82,7 +82,7 @@ public class TestTaskGraphHandler implements TaskGraphNodeHandler {
             prompt = promptBuilderService.getTestTaskExecuteAfterErrorGeneralPrompt(
                     task.getDescription(), analysis, errorMessage);
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
     }
 
     @Override
@@ -95,7 +95,7 @@ public class TestTaskGraphHandler implements TaskGraphNodeHandler {
             prompt = promptBuilderService.getTestTaskRetryExecuteGeneralPrompt(
                     task.getDescription(), analysis, feedback);
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt);
+        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
     }
 
     // ── helpers ──────────────────────────────────────────────────────────────

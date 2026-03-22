@@ -14,5 +14,8 @@ public class CreateTaskRequest {
 
     @NotBlank(message = "Description is required")
     private String description;
+
+    /** Идентификатор модели ИИ (null = дефолтная из конфига) */
+    private String modelName;
 }
 

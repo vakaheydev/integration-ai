@@ -86,7 +86,7 @@ public class SwaggerServiceAi {
                 .build();
     }
 
-    public String chatByDocumentId(String documentId, String userId, String query, String role) {
+    public String chatByDocumentId(String documentId, String userId, String query, String role, String modelName) {
         SwaggerDocument swgDocument = swaggerServiceDocument.getSwaggerById(documentId).orElseThrow();
         String prompt;
         if (role.equalsIgnoreCase("analytic")) {
@@ -97,7 +97,7 @@ public class SwaggerServiceAi {
             throw new IllegalArgumentException("Unknown role: " + role);
         }
         try {
-            return aiSwaggerGraphService.runGraphDocumentChat(userId, prompt, documentId).get("result").toString();
+            return aiSwaggerGraphService.runGraphDocumentChat(userId, prompt, documentId, modelName).get("result").toString();
         } catch (GraphStateException e) {
             throw new RuntimeException(e);
         }

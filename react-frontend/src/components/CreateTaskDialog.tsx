@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -16,7 +16,7 @@ import {
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { tasksApi } from '../api/tasksApi';
-import type { SwaggerDocument, TaskType } from '../models/types';
+import type { SwaggerDocument, TaskType, AIModel } from '../models/types';
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -29,14 +29,37 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClos
   const [selectedDocument, setSelectedDocument] = useState<SwaggerDocument | null>(null);
   const [taskType, setTaskType] = useState<TaskType>('ANALYZE');
   const [description, setDescription] = useState('');
+  const [modelName, setModelName] = useState<string>('');
+  const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
+  const [defaultModel, setDefaultModel] = useState<string>('');
+  const [modelsLoading, setModelsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fetch available models when dialog opens
+  useEffect(() => {
+    if (open) {
+      setModelsLoading(true);
+      tasksApi.getModels()
+        .then(data => {
+          setAvailableModels(data.availableModels ?? []);
+          const def = data.defaultModel ?? '';
+          setDefaultModel(def);
+          setModelName(prev => prev || def); // set default only if not already chosen
+        })
+        .catch(() => {
+          setAvailableModels([]);
+        })
+        .finally(() => setModelsLoading(false));
+    }
+  }, [open]);
 
   const handleClose = () => {
     if (loading) return;
     setSelectedDocument(null);
     setTaskType('ANALYZE');
     setDescription('');
+    setModelName('');
     setError(null);
     onClose();
   };
@@ -49,7 +72,11 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClos
     setLoading(true);
     setError(null);
     try {
-      const request = { type: taskType, description: description.trim() };
+      const request = {
+        type: taskType,
+        description: description.trim(),
+        ...(modelName ? { modelName } : {}),
+      };
       const task = selectedDocument
         ? await tasksApi.createTask(selectedDocument.id, request)
         : await tasksApi.createTaskWithoutDocument(request);
@@ -89,6 +116,25 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClos
             <MenuItem value="ANALYZE">Analysis (ANALYZE)</MenuItem>
             <MenuItem value="CODE">Code generation (CODE)</MenuItem>
             <MenuItem value="TEST">Test generation (TEST)</MenuItem>
+            <MenuItem value="ANALYZE_CODE">Analysis + Code (ANALYZE_CODE)</MenuItem>
+            <MenuItem value="ANALYZE_TEST">Analysis + Tests (ANALYZE_TEST)</MenuItem>
+          </Select>
+        </FormControl>
+
+        <FormControl fullWidth>
+          <InputLabel>Model</InputLabel>
+          <Select
+            value={modelName}
+            label="Model"
+            onChange={(e) => setModelName(e.target.value)}
+            disabled={modelsLoading}
+            endAdornment={modelsLoading ? <CircularProgress size={20} sx={{ mr: 2 }} /> : undefined}
+          >
+            {availableModels.map((m) => (
+              <MenuItem key={m.id} value={m.id}>
+                {m.name}{m.id === defaultModel ? ' (default)' : ''}
+              </MenuItem>
+            ))}
           </Select>
         </FormControl>
 

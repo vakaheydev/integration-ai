@@ -4,6 +4,7 @@ import {
   Alert, Divider, Tooltip, Button, LinearProgress,
   Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, Select, MenuItem, FormControl, InputLabel,
+  Stepper, Step, StepLabel,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon, Refresh as RefreshIcon, Assignment as AssignmentIcon,
@@ -12,12 +13,15 @@ import {
   Replay as ReloadIcon, Delete as DeleteIcon, ContentCopy as CopyIcon,
   ArrowUpward as ArrowUpIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon,
   Send as SendIcon, Close as CloseIcon, CallSplit as FromBaseIcon,
+  QuestionAnswer as QuestionAnswerIcon,
+  ThumbUp as ThumbUpIcon, ThumbDown as ThumbDownIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import { tasksApi } from '../api/tasksApi';
 import { documentsApi } from '../api/documentsApi';
-import type { Task, TaskStage, SwaggerDocument } from '../models/types';
+import type { Task, TaskStage, SwaggerDocument, AIModel } from '../models/types';
 import { parseMessageWithCode } from '../utils/messageParser';
 import { CodeBlock } from '../components/CodeBlock';
 
@@ -32,12 +36,16 @@ const statusConfig: Record<string, { label: string; color: 'default' | 'primary'
   CREATED:   { label: 'Created',   color: 'default',  icon: <ScheduleIcon fontSize="small" /> },
   RUNNING:   { label: 'Running',   color: 'primary',  icon: <PlayArrowIcon fontSize="small" /> },
   WAITING:   { label: 'Waiting',   color: 'warning',  icon: <HourglassIcon fontSize="small" /> },
+  WAITING_USER_INPUT: { label: 'Waiting for your input', color: 'warning', icon: <QuestionAnswerIcon fontSize="small" /> },
+  WAITING_USER_APPROVE: { label: 'Waiting for your approval', color: 'warning', icon: <ThumbUpIcon fontSize="small" /> },
+  WAITING_SUBTASK: { label: 'Subtask running', color: 'info', icon: <HourglassIcon fontSize="small" /> },
   COMPLETED: { label: 'Completed', color: 'success',  icon: <CheckCircleIcon fontSize="small" /> },
   FAILED:    { label: 'Failed',    color: 'error',    icon: <ErrorIcon fontSize="small" /> },
 };
 
 const typeLabels: Record<string, string> = {
   ANALYZE: 'Analysis', CODE: 'Code generation', TEST: 'Test generation',
+  ANALYZE_CODE: 'Analysis + Code', ANALYZE_TEST: 'Analysis + Tests',
 };
 
 function formatDuration(iso: string | null | undefined): string {
@@ -76,6 +84,9 @@ const stageColorMap: Record<string, { bg: string; hover: string }> = {
   COMPLETED: { bg: '#2e7d32', hover: '#1b5e20' },
   FAILED:    { bg: '#c62828', hover: '#7f0000' },
   WAITING:   { bg: '#f57f17', hover: '#e65100' },
+  WAITING_USER_INPUT: { bg: '#f57f17', hover: '#e65100' },
+  WAITING_USER_APPROVE: { bg: '#f57f17', hover: '#e65100' },
+  WAITING_SUBTASK: { bg: '#1565c0', hover: '#0d47a1' },
   CREATED:   { bg: '#1565c0', hover: '#0d47a1' },
   RUNNING:   { bg: '#1565c0', hover: '#0d47a1' },
 };
@@ -177,6 +188,23 @@ export const TaskPage: React.FC = () => {
   const [fromBaseMessage, setFromBaseMessage] = useState('');
   const [creatingFromBase, setCreatingFromBase] = useState(false);
 
+  // AI question (WAITING_USER_INPUT) dialog
+  const [userInputDialogOpen, setUserInputDialogOpen] = useState(false);
+  const [userInputAnswer, setUserInputAnswer] = useState('');
+  const [submittingUserInput, setSubmittingUserInput] = useState(false);
+  const lastShownInputKeyRef = useRef<string | null>(null);
+
+  // Approve dialog (WAITING_USER_APPROVE)
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
+  const [disapproveReason, setDisapproveReason] = useState('');
+  const [showDisapproveField, setShowDisapproveField] = useState(false);
+  const [submittingApproval, setSubmittingApproval] = useState(false);
+  const lastShownApproveKeyRef = useRef<string | null>(null);
+
+  // Subtasks for scenario tasks
+  const [subtasks, setSubtasks] = useState<Task[]>([]);
+  const [subtasksLoading, setSubtasksLoading] = useState(false);
+
   // Last code execution result (stdout/stderr) — shared from CodeBlock
   const [lastExecResult, setLastExecResult] = useState<{ stdout: string; stderr: string } | null>(null);
 
@@ -190,6 +218,13 @@ export const TaskPage: React.FC = () => {
   const [tempChatRole, setTempChatRole] = useState<string>('analytic');
   const [chatExpanded, setChatExpanded] = useState(true);
   const chatContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Model selection for chat
+  const [chatModel, setChatModel] = useState<string>('');
+  const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
+  const [defaultModel, setDefaultModel] = useState<string>('');
+  const [chatModelDialogOpen, setChatModelDialogOpen] = useState(false);
+  const [tempChatModel, setTempChatModel] = useState<string>('');
 
   // Documents for linked text
   const [documents, setDocuments] = useState<SwaggerDocument[]>([]);
@@ -229,6 +264,8 @@ export const TaskPage: React.FC = () => {
 
   const isTerminal = (status?: string) => status === 'COMPLETED' || status === 'FAILED';
 
+  const isScenarioTask = (t: Task) => t.type === 'ANALYZE_CODE' || t.type === 'ANALYZE_TEST' || t.status === 'WAITING_SUBTASK';
+
   const fetchTask = useCallback(async (silent = false) => {
     if (!taskId) return;
     if (!silent) setLoading(true);
@@ -238,6 +275,11 @@ export const TaskPage: React.FC = () => {
       setError(null);
       if (isTerminal(t.status)) {
         if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
+      }
+      // Load subtasks for scenario tasks
+      if (isScenarioTask(t)) {
+        if (!silent) setSubtasksLoading(true);
+        tasksApi.getSubtasks(taskId).then(setSubtasks).catch(() => setSubtasks([])).finally(() => setSubtasksLoading(false));
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error loading task');
@@ -254,6 +296,16 @@ export const TaskPage: React.FC = () => {
       await fetchTask();
       if (cancelled) return;
       documentsApi.getDocuments().then(docs => { if (!cancelled) setDocuments(docs); }).catch(() => {});
+      tasksApi.getModels().then(data => {
+        if (!cancelled) {
+          const models = data.availableModels ?? [];
+          const def = data.defaultModel ?? '';
+          setAvailableModels(models);
+          setDefaultModel(def);
+          setChatModel(prev => prev || def);
+          setTempChatModel(prev => prev || def);
+        }
+      }).catch(() => {});
       intervalRef.current = setInterval(() => fetchTask(true), POLL_INTERVAL);
     };
 
@@ -313,6 +365,78 @@ export const TaskPage: React.FC = () => {
     }
   };
 
+  // Auto-open user input dialog when task status is WAITING_USER_INPUT
+  useEffect(() => {
+    if (!task || task.status !== 'WAITING_USER_INPUT') return;
+    const key = `${task.id}:${task.currentStage?.aiQuestion ?? ''}`;
+    if (lastShownInputKeyRef.current === key) return;
+    lastShownInputKeyRef.current = key;
+    setUserInputAnswer('');
+    setUserInputDialogOpen(true);
+  }, [task?.status, task?.currentStage?.aiQuestion, task?.id]);
+
+  const handleSubmitUserInput = async () => {
+    if (!task || !userInputAnswer.trim()) return;
+    setSubmittingUserInput(true);
+    try {
+      const updated = await tasksApi.resolveInput(task.id, userInputAnswer.trim());
+      setTask(updated);
+      setUserInputDialogOpen(false);
+      setUserInputAnswer('');
+      if (!isTerminal(updated.status) && !intervalRef.current)
+        intervalRef.current = setInterval(() => fetchTask(true), POLL_INTERVAL);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error submitting answer');
+    } finally {
+      setSubmittingUserInput(false);
+    }
+  };
+
+  // Auto-open approve dialog when task status is WAITING_USER_APPROVE
+  useEffect(() => {
+    if (!task || task.status !== 'WAITING_USER_APPROVE') return;
+    const key = `${task.id}:WAITING_USER_APPROVE`;
+    if (lastShownApproveKeyRef.current === key) return;
+    lastShownApproveKeyRef.current = key;
+    setDisapproveReason('');
+    setShowDisapproveField(false);
+    setApproveDialogOpen(true);
+  }, [task?.status, task?.id]);
+
+  const handleApprove = async () => {
+    if (!task) return;
+    setSubmittingApproval(true);
+    try {
+      const updated = await tasksApi.approveTask(task.id, true);
+      setTask(updated);
+      setApproveDialogOpen(false);
+      if (!isTerminal(updated.status) && !intervalRef.current)
+        intervalRef.current = setInterval(() => fetchTask(true), POLL_INTERVAL);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error approving task');
+    } finally {
+      setSubmittingApproval(false);
+    }
+  };
+
+  const handleDisapprove = async () => {
+    if (!task) return;
+    setSubmittingApproval(true);
+    try {
+      const updated = await tasksApi.approveTask(task.id, false, disapproveReason.trim() || undefined);
+      setTask(updated);
+      setApproveDialogOpen(false);
+      setDisapproveReason('');
+      setShowDisapproveField(false);
+      if (!isTerminal(updated.status) && !intervalRef.current)
+        intervalRef.current = setInterval(() => fetchTask(true), POLL_INTERVAL);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error disapproving task');
+    } finally {
+      setSubmittingApproval(false);
+    }
+  };
+
   const handleDelete = async () => {
     if (!task) return;
     setDeleting(true);
@@ -338,7 +462,7 @@ export const TaskPage: React.FC = () => {
     setChatLoading(true);
     setChatError(null);
     try {
-      const res = await tasksApi.chatWithTask(taskId, userMsg.content, chatRole);
+      const res = await tasksApi.chatWithTask(taskId, userMsg.content, chatRole, chatModel || undefined);
       const text =
         res?.answer ??
         res?.response ??
@@ -366,7 +490,19 @@ export const TaskPage: React.FC = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 3 }}>
           <IconButton onClick={() => navigate(-1)}><ArrowBackIcon /></IconButton>
           <AssignmentIcon color="primary" />
-          <Typography variant="h5" fontWeight="bold" sx={{ flexGrow: 1 }}>Task</Typography>
+          <Typography variant="h5" fontWeight="bold" sx={{ flexGrow: 1 }}>
+            {task?.parentTaskId ? 'Subtask' : 'Task'}
+          </Typography>
+          {task?.parentTaskId && (
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={() => navigate(`/tasks/${task.parentTaskId}`)}
+              startIcon={<AccountTreeIcon />}
+            >
+              Parent task
+            </Button>
+          )}
           {task && !isTerminal(task.status) && <CircularProgress size={20} sx={{ mr: 1 }} />}
           <Tooltip title="Refresh">
             <IconButton onClick={() => fetchTask()} size="small"><RefreshIcon /></IconButton>
@@ -392,6 +528,71 @@ export const TaskPage: React.FC = () => {
 
         {loading && !task && <LinearProgress sx={{ mb: 2 }} />}
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
+        {/* WAITING_USER_INPUT banner */}
+        {task?.status === 'WAITING_USER_INPUT' && task.currentStage?.aiQuestion && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            icon={<QuestionAnswerIcon />}
+            action={
+              <Button
+                color="warning"
+                size="small"
+                variant="contained"
+                onClick={() => {
+                  setUserInputAnswer('');
+                  setUserInputDialogOpen(true);
+                }}
+                startIcon={<SendIcon />}
+              >
+                Answer
+              </Button>
+            }
+          >
+            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              AI is waiting for your input
+            </Typography>
+            <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+              {task.currentStage.aiQuestion!.length > 200
+                ? task.currentStage.aiQuestion!.slice(0, 200) + '...'
+                : task.currentStage.aiQuestion}
+            </Typography>
+           </Alert>
+        )}
+
+        {/* WAITING_USER_APPROVE banner */}
+        {task?.status === 'WAITING_USER_APPROVE' && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            icon={<ThumbUpIcon />}
+            action={
+              <Button
+                color="warning"
+                size="small"
+                variant="contained"
+                onClick={() => {
+                  setDisapproveReason('');
+                  setApproveDialogOpen(true);
+                }}
+              >
+                Review
+              </Button>
+            }
+          >
+            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 0.5 }}>
+              AI is waiting for your approval
+            </Typography>
+            {task.currentStage?.approveDescription && (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+                {task.currentStage.approveDescription.length > 200
+                  ? task.currentStage.approveDescription.slice(0, 200) + '...'
+                  : task.currentStage.approveDescription}
+              </Typography>
+            )}
+          </Alert>
+        )}
 
         {task && (
           <>
@@ -464,6 +665,17 @@ export const TaskPage: React.FC = () => {
                           <Typography variant="caption" fontWeight="bold">ROLE</Typography>
                         </Button>
                       </Tooltip>
+                      <Tooltip title="Select model">
+                        <Button
+                          variant="contained"
+                          color="secondary"
+                          onClick={() => { setTempChatModel(chatModel); setChatModelDialogOpen(true); }}
+                          disabled={chatLoading}
+                          sx={{ minWidth: 'auto', px: 1.5, height: '40px', flexShrink: 0 }}
+                        >
+                          <Typography variant="caption" fontWeight="bold">MODEL</Typography>
+                        </Button>
+                      </Tooltip>
                       <TextField
                         fullWidth
                         multiline
@@ -504,6 +716,12 @@ export const TaskPage: React.FC = () => {
                       <Typography variant="caption" color="text.secondary">Type</Typography>
                       <Typography variant="subtitle1" fontWeight="bold">{typeLabels[task.type] ?? task.type}</Typography>
                     </Box>
+                    {task.model && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Model</Typography>
+                        <Typography variant="subtitle1">{task.model}</Typography>
+                      </Box>
+                    )}
                     <Box>
                       <Typography variant="caption" color="text.secondary">Status</Typography>
                       <Box sx={{ mt: 0.5 }}>
@@ -559,6 +777,59 @@ export const TaskPage: React.FC = () => {
                 </Box>
               )}
             </Paper>
+
+            {/* ── Subtasks (scenario) ── */}
+            {isScenarioTask(task) && (
+              <Paper elevation={2} sx={{ mb: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 3, py: 2 }}>
+                  <AccountTreeIcon color="primary" fontSize="small" />
+                  <Typography variant="subtitle1" fontWeight="bold">Scenario progress</Typography>
+                  {subtasksLoading && <CircularProgress size={16} sx={{ ml: 1 }} />}
+                </Box>
+                <Divider />
+                <Box sx={{ px: 3, py: 2 }}>
+                  {subtasks.length === 0 && !subtasksLoading && (
+                    <Typography variant="body2" color="text.secondary">No subtasks yet</Typography>
+                  )}
+                  {subtasks.length > 0 && (
+                    <>
+                      <Stepper
+                        activeStep={subtasks.findIndex(s => s.status !== 'COMPLETED' && s.status !== 'FAILED')}
+                        alternativeLabel
+                        sx={{ mb: 2 }}
+                      >
+                        {subtasks
+                          .sort((a, b) => (a.scenarioStep ?? 0) - (b.scenarioStep ?? 0))
+                          .map((sub) => {
+                            const subCfg = statusConfig[sub.status] ?? { label: sub.status, color: 'default' as const, icon: <ScheduleIcon fontSize="small" /> };
+                            const isError = sub.status === 'FAILED';
+                            return (
+                              <Step key={sub.id} completed={sub.status === 'COMPLETED'}>
+                                <StepLabel
+                                  error={isError}
+                                  sx={{ cursor: 'pointer' }}
+                                  onClick={() => navigate(`/tasks/${sub.id}`)}
+                                >
+                                  <Typography variant="caption" fontWeight="bold">
+                                    {typeLabels[sub.type] ?? sub.type}
+                                  </Typography>
+                                  <Chip
+                                    icon={subCfg.icon}
+                                    label={subCfg.label}
+                                    color={subCfg.color}
+                                    size="small"
+                                    sx={{ mt: 0.5, fontSize: '0.65rem', height: 20 }}
+                                  />
+                                </StepLabel>
+                              </Step>
+                            );
+                          })}
+                      </Stepper>
+                    </>
+                  )}
+                </Box>
+              </Paper>
+            )}
 
             {/* ── Result ── */}
             {task.result && (
@@ -616,30 +887,63 @@ export const TaskPage: React.FC = () => {
                 {historyExpanded && (
                   <Box sx={{ px: 3, pb: 3 }}>
                     <Divider sx={{ mb: 3 }} />
-                    {!isTerminal(task.status) || task.status === 'FAILED' ? (
+                    {task.status === 'RUNNING' || task.status === 'WAITING' || task.status === 'CREATED' ? (
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         {task.currentStage && (<>
                           <Tooltip title="Click for details">
                             <Box onClick={() => setSelectedStage(task.currentStage!)} sx={{
                               ...stageCircleBase, minHeight: 56,
-                              bgcolor: task.status === 'FAILED' ? '#c62828' : '#1565c0',
+                              bgcolor: '#1565c0',
                               color: 'white', py: 1, boxShadow: 3,
                               cursor: 'pointer',
                               transition: 'transform 0.15s, box-shadow 0.15s',
-                              '&:hover': { transform: 'scale(1.04)', boxShadow: 4, bgcolor: task.status === 'FAILED' ? '#7f0000' : '#0d47a1' },
+                              '&:hover': { transform: 'scale(1.04)', boxShadow: 4, bgcolor: '#0d47a1' },
                             }}>
-                              {task.status !== 'FAILED' && <CircularProgress size={12} sx={{ color: 'white', mb: 0.5 }} />}
+                              <CircularProgress size={12} sx={{ color: 'white', mb: 0.5 }} />
                               <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem', lineHeight: 1.3 }}>
                                 {task.currentStage.name}
                               </Typography>
-                              {task.status === 'FAILED' && (
-                                <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.85, mt: 0.25 }}>
-                                  failed here
-                                </Typography>
-                              )}
                             </Box>
                           </Tooltip>
-                          {task.stageHistory.length > 0 && <ArrowUpIcon sx={{ color: task.status === 'FAILED' ? 'error.light' : 'primary.light', fontSize: 24, my: 0.5 }} />}
+                          {task.stageHistory.length > 0 && <ArrowUpIcon sx={{ color: 'primary.light', fontSize: 24, my: 0.5 }} />}
+                        </>)}
+                        {[...task.stageHistory].reverse().map((stage: TaskStage, idx: number) => (
+                          <Box key={stage.id ?? idx} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                            <Tooltip title="Click for details">
+                              <Box onClick={() => setSelectedStage(stage)} sx={{
+                                ...stageCircleBase, minHeight: 56, bgcolor: stageColor(stage).bg, color: 'white', py: 1, cursor: 'pointer',
+                                transition: 'transform 0.15s, box-shadow 0.15s',
+                                '&:hover': { transform: 'scale(1.04)', boxShadow: 3, bgcolor: stageColor(stage).hover },
+                              }}>
+                                <Typography variant="caption" fontWeight="bold" sx={{ lineHeight: 1.3, fontSize: '0.75rem' }}>{stage.name}</Typography>
+                                <Typography variant="caption" sx={{ mt: 0.5, opacity: 0.8, fontSize: '0.7rem' }}>{formatDuration(stage.duration)}</Typography>
+                              </Box>
+                            </Tooltip>
+                            {idx < task.stageHistory.length - 1 && <ArrowUpIcon sx={{ color: 'grey.400', fontSize: 24, my: 0.5 }} />}
+                          </Box>
+                        ))}
+                      </Box>
+                    ) : task.status === 'FAILED' ? (
+                      /* FAILED: show currentStage in red + stageHistory */
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        {task.currentStage && (<>
+                          <Tooltip title="Click for details">
+                            <Box onClick={() => setSelectedStage(task.currentStage!)} sx={{
+                              ...stageCircleBase, minHeight: 56,
+                              bgcolor: '#c62828', color: 'white', py: 1, boxShadow: 3,
+                              cursor: 'pointer',
+                              transition: 'transform 0.15s, box-shadow 0.15s',
+                              '&:hover': { transform: 'scale(1.04)', boxShadow: 4, bgcolor: '#7f0000' },
+                            }}>
+                              <Typography variant="caption" fontWeight="bold" sx={{ fontSize: '0.75rem', lineHeight: 1.3 }}>
+                                {task.currentStage.name}
+                              </Typography>
+                              <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.85, mt: 0.25 }}>
+                                failed here
+                              </Typography>
+                            </Box>
+                          </Tooltip>
+                          {task.stageHistory.length > 0 && <ArrowUpIcon sx={{ color: 'error.light', fontSize: 24, my: 0.5 }} />}
                         </>)}
                         {[...task.stageHistory].reverse().map((stage: TaskStage, idx: number) => (
                           <Box key={stage.id ?? idx} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
@@ -658,6 +962,7 @@ export const TaskPage: React.FC = () => {
                         ))}
                       </Box>
                     ) : (
+                      /* COMPLETED / WAITING_USER_INPUT / WAITING_USER_APPROVE: full history */
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         {[...task.stageHistory].reverse().map((stage: TaskStage, idx: number) => (
                           <Box key={stage.id ?? idx} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
@@ -708,6 +1013,29 @@ export const TaskPage: React.FC = () => {
                 <Typography variant="caption" color="text.secondary">Description</Typography>
                 <Box sx={{ mt: 0.5 }}>
                   {parseMessageWithCode(selectedStage.description).map((part, idx) =>
+                    part.type === 'code' ? (
+                      <CodeBlock key={idx} code={part.content} language={part.language} taskId={taskId} />
+                    ) : (
+                      <Box key={idx} sx={{
+                        '& p': { mt: 0, mb: 0.5 },
+                        '& code': { bgcolor: 'grey.100', px: 0.5, borderRadius: 0.5, fontFamily: 'monospace', fontSize: '0.82rem' },
+                        '& pre': { bgcolor: 'grey.100', p: 1, borderRadius: 1, overflow: 'auto', fontFamily: 'monospace', fontSize: '0.82rem' },
+                        '& pre code': { bgcolor: 'transparent', p: 0 },
+                        '& ul, & ol': { pl: 2.5, mb: 0.5 },
+                        fontSize: '0.875rem',
+                      }}>
+                        <ReactMarkdown>{part.content}</ReactMarkdown>
+                      </Box>
+                    )
+                  )}
+                </Box>
+              </Box>
+            )}
+            {selectedStage.result && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Result</Typography>
+                <Box sx={{ mt: 0.5 }}>
+                  {parseMessageWithCode(selectedStage.result).map((part, idx) =>
                     part.type === 'code' ? (
                       <CodeBlock key={idx} code={part.content} language={part.language} taskId={taskId} />
                     ) : (
@@ -794,6 +1122,47 @@ export const TaskPage: React.FC = () => {
           <Button
             variant="contained"
             onClick={() => { setChatRole(tempChatRole); setChatRoleDialogOpen(false); }}
+            sx={{ py: 1 }}
+          >
+            Apply
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Chat model selection dialog */}
+      <Dialog
+        open={chatModelDialogOpen}
+        onClose={() => setChatModelDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontSize: '1.25rem', py: 2.5 }}>Select Model</DialogTitle>
+        <DialogContent sx={{ pt: 3, pb: 4, minHeight: '180px' }}>
+          <FormControl fullWidth sx={{ mb: 3, mt: 1 }}>
+            <InputLabel id="chat-model-select-label" sx={{ fontSize: '1rem' }}>Model</InputLabel>
+            <Select
+              labelId="chat-model-select-label"
+              value={tempChatModel}
+              label="Model"
+              onChange={e => setTempChatModel(e.target.value)}
+              sx={{ minHeight: '56px', '& .MuiSelect-select': { py: 2, fontSize: '1rem' } }}
+            >
+              {availableModels.map((m) => (
+                <MenuItem key={m.id} value={m.id} sx={{ py: 2, fontSize: '1rem' }}>
+                  {m.name}{m.id === defaultModel ? ' (default)' : ''}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Typography variant="body2" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+            Current model: <strong>{availableModels.find(m => m.id === chatModel)?.name ?? chatModel ?? 'Default'}</strong>
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
+          <Button onClick={() => setChatModelDialogOpen(false)} sx={{ py: 1 }}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={() => { setChatModel(tempChatModel); setChatModelDialogOpen(false); }}
             sx={{ py: 1 }}
           >
             Apply
@@ -984,6 +1353,154 @@ export const TaskPage: React.FC = () => {
           >
             {creatingFromBase ? 'Creating...' : 'Create'}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* AI question — waiting for user input dialog */}
+      <Dialog
+        open={userInputDialogOpen}
+        onClose={() => !submittingUserInput && setUserInputDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <QuestionAnswerIcon color="warning" />
+          AI is asking you a question
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: 'warning.50', borderColor: 'warning.light' }}>
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+              {task?.currentStage?.aiQuestion ?? ''}
+            </Typography>
+          </Paper>
+          <TextField
+            autoFocus
+            fullWidth
+            multiline
+            minRows={3}
+            maxRows={8}
+            value={userInputAnswer}
+            onChange={e => setUserInputAnswer(e.target.value)}
+            placeholder="Type your answer..."
+            disabled={submittingUserInput}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                handleSubmitUserInput();
+              }
+            }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            Press Ctrl+Enter to send
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setUserInputDialogOpen(false)} disabled={submittingUserInput}>
+            Dismiss
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSubmitUserInput}
+            disabled={!userInputAnswer.trim() || submittingUserInput}
+            startIcon={submittingUserInput ? <CircularProgress size={16} /> : <SendIcon />}
+          >
+            {submittingUserInput ? 'Sending...' : 'Send answer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Approve/Disapprove dialog */}
+      <Dialog
+        open={approveDialogOpen}
+        onClose={() => {
+          if (submittingApproval) return;
+          setApproveDialogOpen(false);
+          setShowDisapproveField(false);
+          setDisapproveReason('');
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <ThumbUpIcon color="warning" />
+          Approval required
+        </DialogTitle>
+        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+          <Paper variant="outlined" sx={{ p: 2, bgcolor: 'warning.50', borderColor: 'warning.light' }}>
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+              {task?.currentStage?.approveDescription || 'AI is requesting your approval to proceed.'}
+            </Typography>
+          </Paper>
+          {showDisapproveField && (
+            <TextField
+              autoFocus
+              fullWidth
+              multiline
+              minRows={2}
+              maxRows={6}
+              value={disapproveReason}
+              onChange={e => setDisapproveReason(e.target.value)}
+              placeholder="Describe why you are disapproving (optional)..."
+              disabled={submittingApproval}
+              label="Reason for disapproval (optional)"
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => {
+              setApproveDialogOpen(false);
+              setShowDisapproveField(false);
+              setDisapproveReason('');
+            }}
+            disabled={submittingApproval}
+          >
+            Dismiss
+          </Button>
+
+          {!showDisapproveField ? (
+            <>
+              {/* Initial state: two buttons */}
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={() => setShowDisapproveField(true)}
+                disabled={submittingApproval}
+                startIcon={<ThumbDownIcon />}
+              >
+                Disapprove
+              </Button>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleApprove}
+                disabled={submittingApproval}
+                startIcon={submittingApproval ? <CircularProgress size={16} /> : <ThumbUpIcon />}
+              >
+                {submittingApproval ? 'Sending...' : 'Approve'}
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* Disapprove field shown: Back + Confirm disapprove */}
+              <Button
+                variant="outlined"
+                onClick={() => { setShowDisapproveField(false); setDisapproveReason(''); }}
+                disabled={submittingApproval}
+              >
+                Back
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={handleDisapprove}
+                disabled={submittingApproval}
+                startIcon={submittingApproval ? <CircularProgress size={16} /> : <ThumbDownIcon />}
+              >
+                {submittingApproval ? 'Sending...' : 'Confirm disapproval'}
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

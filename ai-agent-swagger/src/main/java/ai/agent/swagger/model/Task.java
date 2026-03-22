@@ -39,4 +39,31 @@ public class Task {
 
     /** Сообщение пользователя при рестарте — что не устроило / что нужно исправить */
     private String userMessage;
+
+    /** Вопрос ИИ к пользователю (заполняется при WAITING_USER_INPUT) */
+    private String aiQuestion;
+
+    /** Ответ пользователя на вопрос ИИ (заполняется через resolve_input) */
+    private String userInputResponse;
+
+    /** Идентификатор модели ИИ для выполнения таски (null = дефолтная) */
+    private String modelName;
+
+    /** Флаг подтверждения пользователем запуска кода (для CODE/TEST тасок) */
+    private boolean approved;
+
+    /** Описание того, что именно нужно подтвердить (заполняется при WAITING_USER_APPROVE) */
+    private String approveDescription;
+
+    /** Комментарий пользователя при отклонении кода (заполняется через /approve?status=false) */
+    private String approveMessage;
+
+    /** ID родительской таски (null для корневых задач и одиночных типов) */
+    private String parentTaskId;
+
+    /** Тип сценария родительской таски (ANALYZE_CODE, ANALYZE_TEST и т.д.) */
+    private TaskType scenarioType;
+
+    /** Индекс текущего шага в сценарии (0-based) */
+    private int scenarioStep;
 }

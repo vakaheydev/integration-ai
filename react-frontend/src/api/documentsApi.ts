@@ -60,6 +60,12 @@ export const documentsApi = {
     return response.data;
   },
 
+  // Загрузка Swagger документа по URL
+  uploadDocumentFromUrl: async (url: string, name: string): Promise<SwaggerDocument> => {
+    const response = await apiClient.post<SwaggerDocument>('swagger/upload-url', { url, name });
+    return response.data;
+  },
+
   // Получение списка документов
   getDocuments: async (): Promise<SwaggerDocument[]> => {
     const response = await apiClient.get<SwaggerDocument[]>('swagger', {});
@@ -78,7 +84,8 @@ export const documentsApi = {
       `swagger/${documentId}/chat`,
       {
         query: request.question,
-        role: request.role || 'analytic'
+        role: request.role || 'analytic',
+        ...(request.model ? { model: request.model } : {}),
       }
     );
     return response.data;

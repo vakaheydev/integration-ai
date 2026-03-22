@@ -22,6 +22,7 @@ prompts:
       1) Each step must be specific and actionable.
       2) Do NOT include markdown, code fences, comments, or prose outside the format above.
       3) The answer MUST follow the output format exactly.
+      4) Do NOT include any code or code snippets in the plan. Steps must describe WHAT to do, not HOW to implement it in code.
 
     code: |
       STRICT OUTPUT RULES:
@@ -41,9 +42,11 @@ prompts:
 
     analysis-result: |
       STRICT OUTPUT RULES:
-      1) Return only the final result of the task execution.
+      1) Return only the final result of the task execution as a structured textual analysis.
       2) Do NOT include the plan, step numbers, tool names, or any meta-information.
       3) Do NOT include markdown, code fences, or explanations.
+      4) Do NOT write any code (no Python, no JavaScript, no code snippets of any kind). Your output must be purely analytical text.
+      5) If the task asks you to write code — do NOT write code. Instead, describe what the code should do, which endpoints to use, what parameters to pass, and what the expected behavior is.
 
   actions:
     handle-task:
@@ -113,6 +116,10 @@ prompts:
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
         IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method names, field names, document IDs) MUST be explicitly included in the plan steps.
         Answer on language of task_description.
+
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
 
         Output format (strictly follow this structure):
         GOAL: <one sentence — what needs to be done>
@@ -205,6 +212,7 @@ prompts:
         Execute the task strictly following the EXECUTION_PLAN step by step.
         Use the tools specified in each step. Do not skip steps.
         The result must directly solve the task described in TASK_DESCRIPTION.
+        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
         Answer on language of task_description.
 
         ${outputRules.analysisResult}
@@ -258,6 +266,7 @@ prompts:
         Re-execute the task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
         Fix the issues mentioned in FEEDBACK. Do not repeat the same mistakes.
         The result must directly solve the task described in TASK_DESCRIPTION.
+        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
         Answer on language of task_description.
 
         ${outputRules.analysisResult}
@@ -277,6 +286,10 @@ prompts:
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
         IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
         Answer on language of task_description.
+
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
 
         Output format (strictly follow this structure):
         GOAL: <one sentence — what needs to be done>
@@ -328,6 +341,7 @@ prompts:
         Execute the task strictly following the EXECUTION_PLAN step by step.
         No API document is attached — use only general knowledge and available tools.
         Do not skip steps. The result must directly solve the task described in TASK_DESCRIPTION.
+        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
         Answer on language of task_description.
 
         ${outputRules.analysisResult}
@@ -349,6 +363,7 @@ prompts:
         Re-execute the task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
         Fix the issues mentioned in FEEDBACK. Do not repeat the same mistakes.
         The result must directly solve the task described in TASK_DESCRIPTION.
+        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
         Answer on language of task_description.
 
         ${outputRules.analysisResult}
@@ -373,6 +388,7 @@ prompts:
         Re-execute the task strictly following the EXECUTION_PLAN step by step.
         You MUST avoid the error described in PREVIOUS_ERROR.
         The result must directly solve the task described in TASK_DESCRIPTION.
+        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
         Answer on language of task_description.
 
         ${outputRules.analysisResult}
@@ -394,6 +410,7 @@ prompts:
         You MUST avoid the error described in PREVIOUS_ERROR.
         No API document is attached — use only general knowledge and available tools.
         The result must directly solve the task described in TASK_DESCRIPTION.
+        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
         Answer on language of task_description.
 
         ${outputRules.analysisResult}
@@ -446,8 +463,12 @@ prompts:
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
         IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs) MUST be explicitly included in the plan steps.
         Answer on language of task_description.
-        
+
         For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
+
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
 
         Output format (strictly follow this structure):
         GOAL: <one sentence — what code needs to be written>
@@ -488,7 +509,7 @@ prompts:
         Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
         IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs) MUST be explicitly included in the plan steps.
         Answer on language of task_description.
-        
+
         For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
 
         Output format (strictly follow this structure):
@@ -580,6 +601,10 @@ prompts:
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
         IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
         Answer on language of task_description.
+
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
 
         Output format (strictly follow this structure):
         GOAL: <one sentence — what code needs to be written>
@@ -701,6 +726,10 @@ prompts:
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
         IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs, expected status codes) MUST be explicitly included in the plan steps.
         Answer on language of task_description.
+
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
 
         Output format (strictly follow this structure):
         GOAL: <one sentence — what tests need to be written>
@@ -840,6 +869,10 @@ prompts:
         IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
         Answer on language of task_description.
 
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
+
         Output format (strictly follow this structure):
         GOAL: <one sentence — what tests need to be written>
         STEPS:
@@ -930,6 +963,161 @@ prompts:
         You MUST avoid the error described in PREVIOUS_ERROR.
         No API document is attached — use only general knowledge and available tools.
         The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+    code-execution:
+      disapproved-rewrite-code: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DISAPPROVED_CODE>>>
+        ${code}
+        <<<END_DISAPPROVED_CODE>>>
+
+        <<<USER_FEEDBACK>>>
+        ${userFeedback}
+        <<<END_USER_FEEDBACK>>>
+
+        The user reviewed the code in DISAPPROVED_CODE and rejected it.
+        USER_FEEDBACK contains the user's comments explaining what is wrong or needs to change.
+
+        Rewrite the code to address ALL issues mentioned in USER_FEEDBACK.
+        The rewritten code must:
+        - Fix everything the user pointed out
+        - Still solve the original task in TASK_DESCRIPTION
+        - Be a complete, runnable file (not a diff or partial fix)
+
+        ${outputRules.code}
+      disapproved-rewrite-test: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DISAPPROVED_CODE>>>
+        ${code}
+        <<<END_DISAPPROVED_CODE>>>
+
+        <<<USER_FEEDBACK>>>
+        ${userFeedback}
+        <<<END_USER_FEEDBACK>>>
+
+        The user reviewed the tests in DISAPPROVED_CODE and rejected them.
+        USER_FEEDBACK contains the user's comments explaining what is wrong or needs to change.
+
+        Rewrite the tests to address ALL issues mentioned in USER_FEEDBACK.
+        The rewritten tests must:
+        - Fix everything the user pointed out
+        - Still verify the original task requirements in TASK_DESCRIPTION
+        - Be a complete, runnable test file (not a diff or partial fix)
+        - Use Python pytest and the requests library
+
+        ${outputRules.test}
+      approve-description: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<GENERATED_CODE_SUMMARY>>>
+        ${codeSummary}
+        <<<END_GENERATED_CODE_SUMMARY>>>
+
+        The AI has generated code for the task above. The user needs to approve its execution.
+        Write a short summary (2-3 sentences, max) for the user explaining:
+        - What this code does
+        - What will happen when it runs (e.g. API calls, file operations, tests)
+        Answer on language of task_description.
+
+        ${outputRules.text}
+      review-code-execution: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<GENERATED_CODE>>>
+        ${code}
+        <<<END_GENERATED_CODE>>>
+
+        <<<EXECUTION_RESULT>>>
+        ${executionResult}
+        <<<END_EXECUTION_RESULT>>>
+
+        The code in GENERATED_CODE was written to solve the task in TASK_DESCRIPTION.
+        It was executed and the output is in EXECUTION_RESULT.
+
+        Evaluate whether the execution was successful:
+        - Did the code run without errors?
+        - Does the output match what the task expects?
+        - If there are test failures, list which tests failed and why.
+
+        Answer on language of task_description.
+
+        ${outputRules.text}
+      review-code-execution-solution: |
+        <<<REVIEW_FEEDBACK>>>
+        ${feedback}
+        <<<END_REVIEW_FEEDBACK>>>
+
+        Based on REVIEW_FEEDBACK, decide if the code execution was successful.
+        If the code executed successfully and produced correct results — answer "yes".
+        If the code failed, produced wrong results, or needs to be rewritten — answer "no".
+
+        ${outputRules.yesNo}
+      rewrite-code: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ORIGINAL_CODE>>>
+        ${code}
+        <<<END_ORIGINAL_CODE>>>
+
+        <<<EXECUTION_RESULT>>>
+        ${executionResult}
+        <<<END_EXECUTION_RESULT>>>
+
+        <<<REVIEW_FEEDBACK>>>
+        ${feedback}
+        <<<END_REVIEW_FEEDBACK>>>
+
+        The code in ORIGINAL_CODE was written to solve the task in TASK_DESCRIPTION.
+        It was executed and produced the result in EXECUTION_RESULT.
+        The reviewer provided feedback in REVIEW_FEEDBACK.
+
+        Rewrite the code to fix all issues identified in the feedback and execution result.
+        The rewritten code must:
+        - Fix all errors and failures
+        - Still solve the original task
+        - Be a complete, runnable file (not a diff or partial fix)
+
+        ${outputRules.code}
+      rewrite-test: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ORIGINAL_CODE>>>
+        ${code}
+        <<<END_ORIGINAL_CODE>>>
+
+        <<<EXECUTION_RESULT>>>
+        ${executionResult}
+        <<<END_EXECUTION_RESULT>>>
+
+        <<<REVIEW_FEEDBACK>>>
+        ${feedback}
+        <<<END_REVIEW_FEEDBACK>>>
+
+        The tests in ORIGINAL_CODE were written to solve the task in TASK_DESCRIPTION.
+        They were executed and produced the result in EXECUTION_RESULT.
+        The reviewer provided feedback in REVIEW_FEEDBACK.
+
+        Rewrite the tests to fix all issues identified in the feedback and execution result.
+        The rewritten tests must:
+        - Fix all errors and test failures
+        - Still verify the original task requirements
+        - Be a complete, runnable test file (not a diff or partial fix)
+        - Use Python pytest and the requests library
 
         ${outputRules.test}
     vector-search:

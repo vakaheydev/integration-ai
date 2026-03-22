@@ -39,8 +39,8 @@ public class PromptBuilderService {
     public String getExpectedOutputRules(TaskType taskType) {
         if (taskType == null) return outputAnalysisResult();
         return switch (taskType) {
-            case CODE -> outputCode();
-            case TEST -> outputTest();
+            case CODE, ANALYZE_CODE -> outputCode();
+            case TEST, ANALYZE_TEST -> outputTest();
             case ANALYZE -> outputAnalysisResult();
         };
     }
@@ -394,6 +394,69 @@ public class PromptBuilderService {
         sb.append("<<<END_RESTART_CONTEXT>>>\n");
         sb.append("IMPORTANT: Take the RESTART_CONTEXT into account. Fix what the user found unsatisfactory.\n");
         return sb.toString();
+    }
+
+    // ── Code execution prompts ─────────────────────────────────────────────
+
+    public String getDisapprovedRewriteCodePrompt(String taskDescription, String code, String userFeedback) {
+        String template = props.getActions().getCodeExecution().getDisapprovedRewriteCode();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription,
+                "code", code != null ? code : "",
+                "userFeedback", userFeedback != null ? userFeedback : ""));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getDisapprovedRewriteTestPrompt(String taskDescription, String code, String userFeedback) {
+        String template = props.getActions().getCodeExecution().getDisapprovedRewriteTest();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription,
+                "code", code != null ? code : "",
+                "userFeedback", userFeedback != null ? userFeedback : ""));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getApproveDescriptionPrompt(String taskDescription, String codeSummary) {
+        String template = props.getActions().getCodeExecution().getApproveDescription();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription,
+                "codeSummary", codeSummary != null ? codeSummary : ""));
+        return getAnalystRolePrompt(prompt);
+    }
+
+    public String getReviewCodeExecutionPrompt(String taskDescription, String code, String executionResult) {
+        String template = props.getActions().getCodeExecution().getReviewCodeExecution();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription,
+                "code", code != null ? code : "",
+                "executionResult", executionResult != null ? executionResult : ""));
+        return getAnalystRolePrompt(prompt);
+    }
+
+    public String getReviewCodeExecutionSolutionPrompt(String feedback) {
+        String template = props.getActions().getCodeExecution().getReviewCodeExecutionSolution();
+        String prompt = replacePrompt(template, Map.of("feedback", feedback));
+        return getAnalystRolePrompt(prompt);
+    }
+
+    public String getRewriteCodePrompt(String taskDescription, String code, String executionResult, String feedback) {
+        String template = props.getActions().getCodeExecution().getRewriteCode();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription,
+                "code", code != null ? code : "",
+                "executionResult", executionResult != null ? executionResult : "",
+                "feedback", feedback != null ? feedback : ""));
+        return getProgrammerRolePrompt(prompt);
+    }
+
+    public String getRewriteTestPrompt(String taskDescription, String code, String executionResult, String feedback) {
+        String template = props.getActions().getCodeExecution().getRewriteTest();
+        String prompt = replacePrompt(template, Map.of(
+                "taskDescription", taskDescription,
+                "code", code != null ? code : "",
+                "executionResult", executionResult != null ? executionResult : "",
+                "feedback", feedback != null ? feedback : ""));
+        return getProgrammerRolePrompt(prompt);
     }
 
     private String replacePrompt(String prompt, Map<String, String> placeHolders) {

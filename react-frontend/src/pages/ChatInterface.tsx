@@ -11,7 +11,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { documentsApi } from '../api/documentsApi';
 import { tasksApi } from '../api/tasksApi';
-import type { SwaggerDocument, ChatMessage, TaskType } from '../models/types';
+import type { SwaggerDocument, ChatMessage, TaskType, AIModel } from '../models/types';
 import { ChatMessageItem } from '../components/ChatMessageItem';
 import { SwaggerUIViewer } from '../components/SwaggerUIViewer';
 
@@ -32,6 +32,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [tempRole, setTempRole] = useState<string>('analytic');
   const [summaryExpanded, setSummaryExpanded] = useState(true);
+
+  // Model selection
+  const [model, setModel] = useState<string>('');
+  const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
+  const [defaultModel, setDefaultModel] = useState<string>('');
+  const [modelDialogOpen, setModelDialogOpen] = useState(false);
+  const [tempModel, setTempModel] = useState<string>('');
 
   const [viewMode, setViewMode] = useState<ViewMode>(document.content ? 'split' : 'chat');
   const [splitRatio, setSplitRatio] = useState(50);
@@ -74,6 +81,24 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
   const handleRoleDialogClose = () => setRoleDialogOpen(false);
   const handleRoleConfirm = () => { setRole(tempRole); setRoleDialogOpen(false); };
 
+  // Fetch available models on mount
+  useEffect(() => {
+    tasksApi.getModels()
+      .then(data => {
+        const models = data.availableModels ?? [];
+        const def = data.defaultModel ?? '';
+        setAvailableModels(models);
+        setDefaultModel(def);
+        setModel(prev => prev || def);
+        setTempModel(prev => prev || def);
+      })
+      .catch(() => { setAvailableModels([]); });
+  }, []);
+
+  const handleModelDialogOpen = () => { setTempModel(model); setModelDialogOpen(true); };
+  const handleModelDialogClose = () => setModelDialogOpen(false);
+  const handleModelConfirm = () => { setModel(tempModel); setModelDialogOpen(false); };
+
   const handleCreateTask = async () => {
     if (!taskDescription.trim()) return;
     setTaskCreating(true);
@@ -99,7 +124,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
     setLoading(true);
     setError(null);
     try {
-      const response = await documentsApi.sendChatMessage(document.id, { question: userMessage.content, role });
+      const response = await documentsApi.sendChatMessage(document.id, { question: userMessage.content, role, ...(model ? { model } : {}) });
       const responseText = response.answer || (response as any).response || (response as any).text || (response as any).message || JSON.stringify(response);
       setMessages((prev) => [...prev, { role: 'assistant', content: responseText, timestamp: new Date() }]);
     } catch (err: any) {
@@ -143,6 +168,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
             <Button onClick={handleRoleDialogOpen} disabled={loading} variant="contained"
               sx={{ minWidth: 'auto', px: 1.5, py: 1.2, height: '40px' }}>
               <Typography variant="caption" fontWeight="bold">ROLE</Typography>
+            </Button>
+          </Tooltip>
+          <Tooltip title="Select model">
+            <Button onClick={handleModelDialogOpen} disabled={loading} variant="contained" color="secondary"
+              sx={{ minWidth: 'auto', px: 1.5, py: 1.2, height: '40px' }}>
+              <Typography variant="caption" fontWeight="bold">MODEL</Typography>
             </Button>
           </Tooltip>
           <TextField fullWidth multiline maxRows={4} placeholder="Enter your question..." value={input}
@@ -299,6 +330,31 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
         <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
           <Button onClick={handleRoleDialogClose} sx={{ py: 1 }}>Cancel</Button>
           <Button onClick={handleRoleConfirm} variant="contained" sx={{ py: 1 }}>Apply</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Model selection dialog */}
+      <Dialog open={modelDialogOpen} onClose={handleModelDialogClose} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontSize: '1.25rem', py: 2.5 }}>Select Model</DialogTitle>
+        <DialogContent sx={{ pt: 6, pb: 4, minHeight: '180px' }}>
+          <FormControl fullWidth sx={{ mb: 3, mt: 1 }}>
+            <InputLabel id="model-select-label" sx={{ fontSize: '1rem' }}>Model</InputLabel>
+            <Select labelId="model-select-label" value={tempModel} label="Model" onChange={(e) => setTempModel(e.target.value)}
+              sx={{ minHeight: '56px', '& .MuiSelect-select': { py: 2, fontSize: '1rem' } }}>
+              {availableModels.map((m) => (
+                <MenuItem key={m.id} value={m.id} sx={{ py: 2, fontSize: '1rem' }}>
+                  {m.name}{m.id === defaultModel ? ' (default)' : ''}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <Typography variant="body2" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
+            Current model: <strong>{availableModels.find(m => m.id === model)?.name ?? model ?? 'Default'}</strong>
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3, pt: 2 }}>
+          <Button onClick={handleModelDialogClose} sx={{ py: 1 }}>Cancel</Button>
+          <Button onClick={handleModelConfirm} variant="contained" sx={{ py: 1 }}>Apply</Button>
         </DialogActions>
       </Dialog>
     </Box>

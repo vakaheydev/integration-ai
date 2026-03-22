@@ -53,10 +53,14 @@ public class AiSwaggerGraphService {
     }
 
     public Map<String, Object> runGraphDocumentChat(String userId, String request, String documentId) throws GraphStateException {
+        return runGraphDocumentChat(userId, request, documentId, null);
+    }
+
+    public Map<String, Object> runGraphDocumentChat(String userId, String request, String documentId, String modelName) throws GraphStateException {
         var graph = new StateGraph<>(SwaggerChatState.SCHEMA, SwaggerChatState::new)
                 .addNode("ask_llm", node_async(state -> {
-                    String answer = aiChatService.chatWithSwaggerTools(userId, request + "\nDocument ID: " + documentId);
-                    log.info("Получен ответ от ИИ на вопрос: '{}'", answer);
+                    String answer = aiChatService.chatWithSwaggerTools(userId, request + "\nDocument ID: " + documentId, modelName);
+                    log.info("Получен ответ от ИИ на вопрос");
                     return Map.of(SwaggerChatState.ANSWER, answer);
                 }))
 

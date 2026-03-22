@@ -36,6 +36,7 @@ public class SwaggerPromptsProperties {
         private HandleTask handleTask;
         private CodeTask codeTask;
         private TestTask testTask;
+        private CodeExecution codeExecution;
 
         @Data
         public static class DocumentChat {
@@ -87,6 +88,17 @@ public class SwaggerPromptsProperties {
             private String handleTaskAnalysisGeneral;
             private String retryHandleTaskAnalysisGeneral;
             private String handleTaskAnalysisAfterErrorGeneral;
+        }
+
+        @Data
+        public static class CodeExecution {
+            private String disapprovedRewriteCode;
+            private String disapprovedRewriteTest;
+            private String approveDescription;
+            private String reviewCodeExecution;
+            private String reviewCodeExecutionSolution;
+            private String rewriteCode;
+            private String rewriteTest;
         }
 
         @Data
