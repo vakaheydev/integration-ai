@@ -58,11 +58,14 @@ public class Task {
     /** Комментарий пользователя при отклонении кода (заполняется через /approve?status=false) */
     private String approveMessage;
 
+    /** Результат предыдущего шага сценария (заполняется при цепочке подзадач) */
+    private String chainInput;
+
     /** ID родительской таски (null для корневых задач и одиночных типов) */
     private String parentTaskId;
 
     /** Тип сценария родительской таски (ANALYZE_CODE, ANALYZE_TEST и т.д.) */
-    private TaskType scenarioType;
+    private ScenarioType scenarioType;
 
     /** Индекс текущего шага в сценарии (0-based) */
     private int scenarioStep;

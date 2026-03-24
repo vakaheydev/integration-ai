@@ -11,18 +11,13 @@ public final class TaskScenario {
 
     private TaskScenario() {}
 
-    private static final Map<TaskType, List<TaskType>> SCENARIOS = Map.of(
-            TaskType.ANALYZE_CODE, List.of(TaskType.ANALYZE, TaskType.CODE),
-            TaskType.ANALYZE_TEST, List.of(TaskType.ANALYZE, TaskType.TEST)
+    private static final Map<ScenarioType, List<TaskType>> SCENARIOS = Map.of(
+            ScenarioType.ANALYZE_CODE, List.of(TaskType.ANALYZE, TaskType.CODE),
+            ScenarioType.ANALYZE_TEST, List.of(TaskType.ANALYZE, TaskType.TEST)
     );
 
-    /** Возвращает true, если тип является сценарием (цепочкой), а не одиночной задачей */
-    public static boolean isScenario(TaskType type) {
-        return SCENARIOS.containsKey(type);
-    }
-
     /** Возвращает цепочку базовых типов для сценария */
-    public static List<TaskType> getSteps(TaskType type) {
+    public static List<TaskType> getSteps(ScenarioType type) {
         List<TaskType> steps = SCENARIOS.get(type);
         if (steps == null) {
             throw new IllegalArgumentException(type + " is not a scenario");
@@ -31,14 +26,14 @@ public final class TaskScenario {
     }
 
     /** Возвращает следующий шаг сценария или null, если текущий — последний */
-    public static TaskType getNextStep(TaskType scenarioType, int currentStep) {
+    public static TaskType getNextStep(ScenarioType scenarioType, int currentStep) {
         List<TaskType> steps = getSteps(scenarioType);
         int next = currentStep + 1;
         return next < steps.size() ? steps.get(next) : null;
     }
 
     /** Возвращает первый шаг сценария */
-    public static TaskType getFirstStep(TaskType scenarioType) {
+    public static TaskType getFirstStep(ScenarioType scenarioType) {
         return getSteps(scenarioType).get(0);
     }
 }

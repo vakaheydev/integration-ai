@@ -38,11 +38,11 @@ public class AnalyzeTaskGraphHandler implements TaskGraphNodeHandler {
             prompt = promptBuilderService.getHandleTaskAnalyzePrompt(
                     task.getDescription(), task.getDocumentId(),
                     document.getDocumentSummary(), document.getMethodSummary(), availableTools,
-                    task.getPreviousResult(), task.getUserMessage());
+                    task.getPreviousResult(), task.getUserMessage(), task.getChainInput());
         } else {
             prompt = promptBuilderService.getHandleTaskAnalyzeGeneralPrompt(
                     task.getDescription(), availableTools,
-                    task.getPreviousResult(), task.getUserMessage());
+                    task.getPreviousResult(), task.getUserMessage(), task.getChainInput());
         }
         return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
     }

@@ -111,6 +111,7 @@ prompts:
         <<<END_AVAILABLE_TOOLS>>>
 
         ${restartContext}
+        ${chainContext}
         Analyze the task and produce a short execution plan for another AI that will perform it.
         Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
@@ -280,6 +281,7 @@ prompts:
         <<<END_AVAILABLE_TOOLS>>>
 
         ${restartContext}
+        ${chainContext}
         Analyze the task and produce a short execution plan for another AI that will perform it.
         No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
         If no tool is needed for a step, write "none".
@@ -458,6 +460,7 @@ prompts:
         <<<END_AVAILABLE_TOOLS>>>
 
         ${restartContext}
+        ${chainContext}
         Analyze the coding task and produce a short execution plan for another AI that will implement it.
         Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
@@ -595,6 +598,7 @@ prompts:
         <<<END_AVAILABLE_TOOLS>>>
 
         ${restartContext}
+        ${chainContext}
         Analyze the coding task and produce a short execution plan for another AI that will implement it.
         No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
         If no tool is needed for a step, write "none".
@@ -720,6 +724,7 @@ prompts:
         <<<END_AVAILABLE_TOOLS>>>
 
         ${restartContext}
+        ${chainContext}
         Analyze the API testing task and produce a short execution plan for another AI that will write API tests.
         The tests must verify that the API endpoints work correctly: check HTTP status codes, response structure, required fields, error handling.
         Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
@@ -862,6 +867,7 @@ prompts:
         <<<END_AVAILABLE_TOOLS>>>
 
         ${restartContext}
+        ${chainContext}
         Analyze the API testing task and produce a short execution plan for another AI that will write API tests.
         No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
         If no tool is needed for a step, write "none".

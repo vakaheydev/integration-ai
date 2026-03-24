@@ -39,8 +39,8 @@ public class PromptBuilderService {
     public String getExpectedOutputRules(TaskType taskType) {
         if (taskType == null) return outputAnalysisResult();
         return switch (taskType) {
-            case CODE, ANALYZE_CODE -> outputCode();
-            case TEST, ANALYZE_TEST -> outputTest();
+            case CODE -> outputCode();
+            case TEST -> outputTest();
             case ANALYZE -> outputAnalysisResult();
         };
     }
@@ -81,12 +81,17 @@ public class PromptBuilderService {
     }
 
     public String getHandleTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools, String previousResult, String userMessage) {
+        return getHandleTaskAnalyzePrompt(taskDescription, documentId, documentSummary, documentMethodSummary, availableTools, previousResult, userMessage, null);
+    }
+
+    public String getHandleTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools, String previousResult, String userMessage, String chainInput) {
         String template = props.getActions().getHandleTask().getAnalyzeTask();
         String prompt = replacePrompt(template, Map.of(
                 "taskDescription", taskDescription, "documentId", documentId,
                 "availableTools", availableTools, "swaggerSummary", documentSummary,
                 "swaggerMethodSummary", documentMethodSummary,
-                "restartContext", buildRestartContext(previousResult, userMessage)));
+                "restartContext", buildRestartContext(previousResult, userMessage),
+                "chainContext", buildChainContext(chainInput)));
         return getAnalystRolePrompt(prompt);
     }
 
@@ -146,10 +151,15 @@ public class PromptBuilderService {
     }
 
     public String getHandleTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools, String previousResult, String userMessage) {
+        return getHandleTaskAnalyzeGeneralPrompt(taskDescription, availableTools, previousResult, userMessage, null);
+    }
+
+    public String getHandleTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools, String previousResult, String userMessage, String chainInput) {
         String template = props.getActions().getHandleTask().getAnalyzeTaskGeneral();
         String prompt = replacePrompt(template, Map.of(
                 "taskDescription", taskDescription, "availableTools", availableTools,
-                "restartContext", buildRestartContext(previousResult, userMessage)));
+                "restartContext", buildRestartContext(previousResult, userMessage),
+                "chainContext", buildChainContext(chainInput)));
         return getAnalystRolePrompt(prompt);
     }
 
@@ -172,12 +182,17 @@ public class PromptBuilderService {
     }
 
     public String getCodeTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools, String previousResult, String userMessage) {
+        return getCodeTaskAnalyzePrompt(taskDescription, documentId, documentSummary, documentMethodSummary, availableTools, previousResult, userMessage, null);
+    }
+
+    public String getCodeTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools, String previousResult, String userMessage, String chainInput) {
         String template = props.getActions().getCodeTask().getAnalyzeTask();
         String prompt = replacePrompt(template, Map.of(
                 "taskDescription", taskDescription, "documentId", documentId,
                 "availableTools", availableTools, "swaggerSummary", documentSummary,
                 "swaggerMethodSummary", documentMethodSummary,
-                "restartContext", buildRestartContext(previousResult, userMessage)));
+                "restartContext", buildRestartContext(previousResult, userMessage),
+                "chainContext", buildChainContext(chainInput)));
         return getProgrammerRolePrompt(prompt);
     }
 
@@ -210,10 +225,15 @@ public class PromptBuilderService {
     }
 
     public String getCodeTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools, String previousResult, String userMessage) {
+        return getCodeTaskAnalyzeGeneralPrompt(taskDescription, availableTools, previousResult, userMessage, null);
+    }
+
+    public String getCodeTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools, String previousResult, String userMessage, String chainInput) {
         String template = props.getActions().getCodeTask().getAnalyzeTaskGeneral();
         String prompt = replacePrompt(template, Map.of(
                 "taskDescription", taskDescription, "availableTools", availableTools,
-                "restartContext", buildRestartContext(previousResult, userMessage)));
+                "restartContext", buildRestartContext(previousResult, userMessage),
+                "chainContext", buildChainContext(chainInput)));
         return getProgrammerRolePrompt(prompt);
     }
 
@@ -248,12 +268,17 @@ public class PromptBuilderService {
     }
 
     public String getTestTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools, String previousResult, String userMessage) {
+        return getTestTaskAnalyzePrompt(taskDescription, documentId, documentSummary, documentMethodSummary, availableTools, previousResult, userMessage, null);
+    }
+
+    public String getTestTaskAnalyzePrompt(String taskDescription, String documentId, String documentSummary, String documentMethodSummary, String availableTools, String previousResult, String userMessage, String chainInput) {
         String template = props.getActions().getTestTask().getAnalyzeTask();
         String prompt = replacePrompt(template, Map.of(
                 "taskDescription", taskDescription, "documentId", documentId,
                 "availableTools", availableTools, "swaggerSummary", documentSummary,
                 "swaggerMethodSummary", documentMethodSummary,
-                "restartContext", buildRestartContext(previousResult, userMessage)));
+                "restartContext", buildRestartContext(previousResult, userMessage),
+                "chainContext", buildChainContext(chainInput)));
         return getProgrammerRolePrompt(prompt);
     }
 
@@ -286,10 +311,15 @@ public class PromptBuilderService {
     }
 
     public String getTestTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools, String previousResult, String userMessage) {
+        return getTestTaskAnalyzeGeneralPrompt(taskDescription, availableTools, previousResult, userMessage, null);
+    }
+
+    public String getTestTaskAnalyzeGeneralPrompt(String taskDescription, String availableTools, String previousResult, String userMessage, String chainInput) {
         String template = props.getActions().getTestTask().getAnalyzeTaskGeneral();
         String prompt = replacePrompt(template, Map.of(
                 "taskDescription", taskDescription, "availableTools", availableTools,
-                "restartContext", buildRestartContext(previousResult, userMessage)));
+                "restartContext", buildRestartContext(previousResult, userMessage),
+                "chainContext", buildChainContext(chainInput)));
         return getProgrammerRolePrompt(prompt);
     }
 
@@ -370,6 +400,23 @@ public class PromptBuilderService {
         String template = props.getActions().getVectorSearch().getExtractKeyWords();
         String prompt = replacePrompt(template, Map.of("userPrompt",  userPrompt));
         return getAnalystRolePrompt(prompt);
+    }
+
+    /**
+     * Формирует блок контекста цепочки сценария для промпта.
+     * Если подзадача получила результат от предыдущего шага — ИИ должен опираться на него.
+     */
+    private String buildChainContext(String chainInput) {
+        if (chainInput == null || chainInput.isBlank()) {
+            return "";
+        }
+        return "<<<PREVIOUS_STEP_RESULT>>>\n"
+                + "The previous step in the scenario pipeline produced the following result.\n"
+                + "You MUST use this result as the foundation for your work. Do NOT ignore it.\n"
+                + "RESULT:\n"
+                + chainInput + "\n"
+                + "<<<END_PREVIOUS_STEP_RESULT>>>\n"
+                + "IMPORTANT: Build your plan based on the PREVIOUS_STEP_RESULT above.\n";
     }
 
     /**

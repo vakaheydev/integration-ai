@@ -1,5 +1,6 @@
 package ai.agent.swagger.service;
 
+import ai.agent.swagger.model.ScenarioType;
 import ai.agent.swagger.model.Stage;
 import ai.agent.swagger.model.Task;
 import ai.agent.swagger.model.TaskResult;
@@ -153,14 +154,14 @@ public class TaskProcessorService {
         Task parent = taskService.getTaskById(parentId)
                 .orElseThrow(() -> new IllegalStateException("Parent task not found: " + parentId));
 
-        TaskType scenarioType = completedSubtask.getScenarioType();
+        ScenarioType scenarioType = completedSubtask.getScenarioType();
         int currentStep = completedSubtask.getScenarioStep();
         TaskType nextStepType = TaskScenario.getNextStep(scenarioType, currentStep);
 
         if (nextStepType != null) {
-            // Создаём следующую подтаску с результатом предыдущей
+            // Создаём следующую подтаску с результатом предыдущей через chainInput
             Task nextSubtask = taskService.createSubtask(parent, currentStep + 1);
-            nextSubtask.setPreviousResult(completedSubtask.getResult());
+            nextSubtask.setChainInput(completedSubtask.getResult());
             taskService.updateTask(nextSubtask);
             log.info("Scenario {} advanced: step {} ({}) -> step {} ({}) for parent id={}",
                     scenarioType, currentStep, completedSubtask.getType(),

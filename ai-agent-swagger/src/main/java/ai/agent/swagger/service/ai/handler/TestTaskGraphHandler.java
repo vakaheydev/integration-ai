@@ -38,11 +38,11 @@ public class TestTaskGraphHandler implements TaskGraphNodeHandler {
             prompt = promptBuilderService.getTestTaskAnalyzePrompt(
                     task.getDescription(), task.getDocumentId(),
                     document.getDocumentSummary(), document.getMethodSummary(), availableTools,
-                    task.getPreviousResult(), task.getUserMessage());
+                    task.getPreviousResult(), task.getUserMessage(), task.getChainInput());
         } else {
             prompt = promptBuilderService.getTestTaskAnalyzeGeneralPrompt(
                     task.getDescription(), availableTools,
-                    task.getPreviousResult(), task.getUserMessage());
+                    task.getPreviousResult(), task.getUserMessage(), task.getChainInput());
         }
         return aiChatService.chatStateless(prompt, task.getModelName());
     }

@@ -1,7 +1,6 @@
 package ai.agent.swagger.model;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -11,6 +10,9 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CreateTaskRequest {
     private TaskType type = TaskType.ANALYZE;
+
+    /** Тип сценария (если задан — создаётся сценарная задача из цепочки подзадач) */
+    private ScenarioType scenarioType;
 
     @NotBlank(message = "Description is required")
     private String description;

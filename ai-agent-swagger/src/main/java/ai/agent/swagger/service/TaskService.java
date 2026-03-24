@@ -1,6 +1,7 @@
 package ai.agent.swagger.service;
 
 import ai.agent.swagger.model.CreateTaskRequest;
+import ai.agent.swagger.model.ScenarioType;
 import ai.agent.swagger.model.Stage;
 import ai.agent.swagger.model.Task;
 import ai.agent.swagger.model.TaskScenario;
@@ -26,20 +27,22 @@ public class TaskService {
     }
 
     public Task createTask(String documentId, String userId, CreateTaskRequest request) {
-        TaskType requestedType = request.getType();
+        ScenarioType scenarioType = request.getScenarioType();
 
-        // Если это сценарий — создаём родительскую таску и первую подтаску
-        if (TaskScenario.isScenario(requestedType)) {
+        // Если указан сценарий — создаём родительскую таску и первую подтаску
+        if (scenarioType != null) {
+            TaskType firstStepType = TaskScenario.getFirstStep(scenarioType);
             Task parent = Task.builder()
                     .documentId(documentId)
                     .userId(userId)
-                    .type(requestedType)
+                    .type(firstStepType)
+                    .scenarioType(scenarioType)
                     .description(request.getDescription())
                     .modelName(request.getModelName())
                     .status(TaskStatus.WAITING_SUBTASK)
                     .build();
             Task savedParent = taskRepository.save(parent);
-            log.debug("Created scenario parent task id={}, type={}", savedParent.getId(), requestedType);
+            log.debug("Created scenario parent task id={}, scenarioType={}", savedParent.getId(), scenarioType);
 
             createSubtask(savedParent, 0);
             return savedParent;
@@ -49,7 +52,7 @@ public class TaskService {
         Task task = Task.builder()
                 .documentId(documentId)
                 .userId(userId)
-                .type(requestedType)
+                .type(request.getType())
                 .description(request.getDescription())
                 .modelName(request.getModelName())
                 .build();
@@ -62,7 +65,7 @@ public class TaskService {
      * Создаёт подтаску для указанного шага сценария.
      */
     public Task createSubtask(Task parent, int stepIndex) {
-        TaskType scenarioType = parent.getType();
+        ScenarioType scenarioType = parent.getScenarioType();
         TaskType stepType = TaskScenario.getSteps(scenarioType).get(stepIndex);
 
         Task subtask = Task.builder()
@@ -135,6 +138,7 @@ public class TaskService {
         if (patch.getAiQuestion() != null)        existing.setAiQuestion(patch.getAiQuestion());
         if (patch.getUserInputResponse() != null) existing.setUserInputResponse(patch.getUserInputResponse());
         if (patch.getModelName() != null)         existing.setModelName(patch.getModelName());
+        if (patch.getChainInput() != null)        existing.setChainInput(patch.getChainInput());
         if (patch.getApproveDescription() != null) existing.setApproveDescription(patch.getApproveDescription());
         if (patch.getApproveMessage() != null)     existing.setApproveMessage(patch.getApproveMessage());
 
