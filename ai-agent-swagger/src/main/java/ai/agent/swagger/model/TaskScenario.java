@@ -12,8 +12,9 @@ public final class TaskScenario {
     private TaskScenario() {}
 
     private static final Map<ScenarioType, List<TaskType>> SCENARIOS = Map.of(
-            ScenarioType.ANALYZE_CODE, List.of(TaskType.ANALYZE, TaskType.CODE),
-            ScenarioType.ANALYZE_TEST, List.of(TaskType.ANALYZE, TaskType.TEST)
+            ScenarioType.ANALYZE_CODE,      List.of(TaskType.ANALYZE, TaskType.CODE),
+            ScenarioType.ANALYZE_TEST,      List.of(TaskType.ANALYZE, TaskType.TEST),
+            ScenarioType.ANALYZE_CODE_TEST, List.of(TaskType.ANALYZE, TaskType.CODE, TaskType.TEST)
     );
 
     /** Возвращает цепочку базовых типов для сценария */

@@ -337,7 +337,8 @@ public class AiTaskGraphService {
                             execResult.isSuccess() ? "Code executed successfully" : "Code execution failed",
                             summary,
                             execResult.isSuccess() ? TaskStatus.COMPLETED : TaskStatus.FAILED);
-                    return Map.of(TaskState.EXECUTION_RESULT, summary, TaskState.FAILED, "");
+                    // Сохраняем код в state.result(), чтобы handle_result получил его в финале
+                    return Map.of(TaskState.EXECUTION_RESULT, summary, TaskState.RESULT, code, TaskState.FAILED, "");
                 }))
 
                 .addNode("review_code_execution", node_async(state -> {
@@ -523,7 +524,7 @@ public class AiTaskGraphService {
                         Map.of("done", "handle_result", "rewrite", "rewrite_code")
                 )
 
-                .addEdge("rewrite_code", "execute_code")
+                .addEdge("rewrite_code", "approve_code")
 
                 .addEdge("handle_result", END)
 

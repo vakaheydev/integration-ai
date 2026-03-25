@@ -125,12 +125,14 @@ public class TaskService {
         Task existing = taskRepository.findById(patch.getId())
                 .orElseThrow(() -> new IllegalArgumentException("Task not found: " + patch.getId()));
 
-        if (patch.getStatus() != null)            existing.setStatus(patch.getStatus());
+        // CREATED — дефолтное значение @Builder.Default, никогда не сбрасываем в него через patch
+        if (patch.getStatus() != null && patch.getStatus() != TaskStatus.CREATED) existing.setStatus(patch.getStatus());
         if (patch.getCurrentStage() != null)      existing.setCurrentStage(patch.getCurrentStage());
         if (patch.getStatusDescription() != null) existing.setStatusDescription(patch.getStatusDescription());
         if (patch.getCompletedDatetime() != null) existing.setCompletedDatetime(patch.getCompletedDatetime());
         if (patch.getResult() != null)            existing.setResult(patch.getResult());
-        if (patch.getStageHistory() != null)      existing.setStageHistory(patch.getStageHistory());
+        // Пустой список — дефолт @Builder.Default в new Task(); не затираем им реальную историю
+        if (patch.getStageHistory() != null && !patch.getStageHistory().isEmpty()) existing.setStageHistory(patch.getStageHistory());
         if (patch.getDocumentId() != null)        existing.setDocumentId(patch.getDocumentId());
         if (patch.getUserId() != null)            existing.setUserId(patch.getUserId());
         if (patch.getType() != null)              existing.setType(patch.getType());

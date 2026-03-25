@@ -726,7 +726,8 @@ prompts:
         ${restartContext}
         ${chainContext}
         Analyze the API testing task and produce a short execution plan for another AI that will write API tests.
-        The tests must verify that the API endpoints work correctly: check HTTP status codes, response structure, required fields, error handling.
+        If PREVIOUS_STEP_RESULT is present above, it contains the source code that was generated in the previous step. In that case, the tests MUST be written specifically for that code — import and call its functions/classes directly, do not duplicate the implementation.
+        If no PREVIOUS_STEP_RESULT is present, the tests must verify that the API endpoints work correctly: check HTTP status codes, response structure, required fields, error handling.
         Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
         IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs, expected status codes) MUST be explicitly included in the plan steps.
@@ -799,10 +800,11 @@ prompts:
         ${analysis}
         <<<END_EXECUTION_PLAN>>>
 
-        Write API tests strictly following the EXECUTION_PLAN step by step.
+        Write tests strictly following the EXECUTION_PLAN step by step.
         Use the tools specified in each step. Do not skip steps.
-        The tests must use Python pytest and the requests library.
-        Each test must send a real HTTP request to the API and assert on:
+        The tests must use Python pytest.
+        If the EXECUTION_PLAN mentions testing specific source code (from a previous step), use the requests library to call the API and also import/call functions from that code directly.
+        Otherwise, the tests must send real HTTP requests to the API and assert on:
         - HTTP status code
         - Response body structure (required fields exist)
         - Error responses for invalid input
@@ -869,6 +871,7 @@ prompts:
         ${restartContext}
         ${chainContext}
         Analyze the API testing task and produce a short execution plan for another AI that will write API tests.
+        If PREVIOUS_STEP_RESULT is present above, it contains the source code that was generated in the previous step. In that case, the tests MUST be written specifically for that code — import and call its functions/classes directly, do not duplicate the implementation.
         No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
         If no tool is needed for a step, write "none".
         The plan must be concise and actionable — no explanations, no reasoning, no fluff.
@@ -925,9 +928,11 @@ prompts:
         ${analysis}
         <<<END_EXECUTION_PLAN>>>
 
-        Write API tests strictly following the EXECUTION_PLAN step by step.
+        Write tests strictly following the EXECUTION_PLAN step by step.
         No API document is attached — use only general knowledge and available tools.
-        Do not skip steps. The tests must use Python pytest and the requests library.
+        Do not skip steps. The tests must use Python pytest.
+        If the EXECUTION_PLAN mentions testing specific source code (from a previous step), import and call its functions/classes directly.
+        Otherwise, use the requests library to send real HTTP requests.
         The result must be a complete, runnable test file.
 
         ${outputRules.test}

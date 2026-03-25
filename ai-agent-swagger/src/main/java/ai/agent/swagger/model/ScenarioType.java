@@ -7,5 +7,6 @@ package ai.agent.swagger.model;
  */
 public enum ScenarioType {
     ANALYZE_CODE,
-    ANALYZE_TEST
+    ANALYZE_TEST,
+    ANALYZE_CODE_TEST
 }

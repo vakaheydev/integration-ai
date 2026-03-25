@@ -33,15 +33,16 @@ public class TaskProcessorService {
     public void handleTask(Task task) {
         log.info("Handling task id={}, type={}, documentId={}", task.getId(), task.getType(), task.getDocumentId());
         try {
-            taskService.updateTask(task.toBuilder()
-                    .status(TaskStatus.RUNNING)
-                    .currentStage(Stage.builder()
-                            .id(0)
-                            .name("Processing task")
-                            .description("Getting ready to execute the task")
-                            .instantStart(Instant.now())
-                            .build())
+            Task runningPatch = new Task();
+            runningPatch.setId(task.getId());
+            runningPatch.setStatus(TaskStatus.RUNNING);
+            runningPatch.setCurrentStage(Stage.builder()
+                    .id(0)
+                    .name("Processing task")
+                    .description("Getting ready to execute the task")
+                    .instantStart(Instant.now())
                     .build());
+            taskService.updateTask(runningPatch);
 
             TaskResult taskResult = taskHandler.handle(task);
             if (taskResult.getStatus() == TaskStatus.WAITING_USER_INPUT) {
@@ -154,6 +155,10 @@ public class TaskProcessorService {
         Task parent = taskService.getTaskById(parentId)
                 .orElseThrow(() -> new IllegalStateException("Parent task not found: " + parentId));
 
+        // Читаем свежую версию из БД — стейловый объект планировщика не содержит актуального result
+        Task freshCompleted = taskService.getTaskById(completedSubtask.getId())
+                .orElseThrow(() -> new IllegalStateException("Completed subtask not found: " + completedSubtask.getId()));
+
         ScenarioType scenarioType = completedSubtask.getScenarioType();
         int currentStep = completedSubtask.getScenarioStep();
         TaskType nextStepType = TaskScenario.getNextStep(scenarioType, currentStep);
@@ -161,7 +166,7 @@ public class TaskProcessorService {
         if (nextStepType != null) {
             // Создаём следующую подтаску с результатом предыдущей через chainInput
             Task nextSubtask = taskService.createSubtask(parent, currentStep + 1);
-            nextSubtask.setChainInput(completedSubtask.getResult());
+            nextSubtask.setChainInput(freshCompleted.getResult());
             taskService.updateTask(nextSubtask);
             log.info("Scenario {} advanced: step {} ({}) -> step {} ({}) for parent id={}",
                     scenarioType, currentStep, completedSubtask.getType(),
@@ -169,7 +174,7 @@ public class TaskProcessorService {
         } else {
             // Сценарий завершён — завершаем родительскую таску результатом последней подтаски
             taskService.finishTask(parentId, TaskStatus.COMPLETED,
-                    "Scenario completed", completedSubtask.getResult());
+                    "Scenario completed", freshCompleted.getResult());
             log.info("Scenario {} completed for parent id={}", scenarioType, parentId);
         }
     }
