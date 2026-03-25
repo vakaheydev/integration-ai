@@ -13,10 +13,13 @@ import {
   Alert,
   CircularProgress,
   Autocomplete,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { tasksApi } from '../api/tasksApi';
-import type { SwaggerDocument, TaskType, AIModel } from '../models/types';
+import type { SwaggerDocument, TaskType, ScenarioType, AIModel } from '../models/types';
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -27,29 +30,22 @@ interface CreateTaskDialogProps {
 export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClose, documents }) => {
   const navigate = useNavigate();
   const [selectedDocument, setSelectedDocument] = useState<SwaggerDocument | null>(null);
+  const [taskKind, setTaskKind] = useState<'task' | 'scenario'>('task');
   const [taskType, setTaskType] = useState<TaskType>('ANALYZE');
+  const [scenarioType, setScenarioType] = useState<ScenarioType | ''>('');
   const [description, setDescription] = useState('');
-  const [modelName, setModelName] = useState<string>('');
-  const [availableModels, setAvailableModels] = useState<AIModel[]>([]);
-  const [defaultModel, setDefaultModel] = useState<string>('');
-  const [modelsLoading, setModelsLoading] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [modelName, setModelName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [models, setModels] = useState<AIModel[]>([]);
+  const [modelsLoading, setModelsLoading] = useState(false);
 
-  // Fetch available models when dialog opens
   useEffect(() => {
     if (open) {
       setModelsLoading(true);
       tasksApi.getModels()
-        .then(data => {
-          setAvailableModels(data.availableModels ?? []);
-          const def = data.defaultModel ?? '';
-          setDefaultModel(def);
-          setModelName(prev => prev || def); // set default only if not already chosen
-        })
-        .catch(() => {
-          setAvailableModels([]);
-        })
+        .then((data) => setModels(data.availableModels || []))
+        .catch(() => setModels([]))
         .finally(() => setModelsLoading(false));
     }
   }, [open]);
@@ -57,7 +53,9 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClos
   const handleClose = () => {
     if (loading) return;
     setSelectedDocument(null);
+    setTaskKind('task');
     setTaskType('ANALYZE');
+    setScenarioType('');
     setDescription('');
     setModelName('');
     setError(null);
@@ -72,11 +70,14 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClos
     setLoading(true);
     setError(null);
     try {
-      const request = {
-        type: taskType,
-        description: description.trim(),
-        ...(modelName ? { modelName } : {}),
-      };
+      let request: any = { description: description.trim() };
+      if (taskKind === 'task') {
+        request.type = taskType;
+      } else if (taskKind === 'scenario') {
+        request.type = 'ANALYZE'; // или другой дефолт, если требуется
+        request.scenarioType = scenarioType;
+      }
+      if (modelName) request.modelName = modelName;
       const task = selectedDocument
         ? await tasksApi.createTask(selectedDocument.id, request)
         : await tasksApi.createTaskWithoutDocument(request);
@@ -106,34 +107,58 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClos
           clearOnEscape
         />
 
-        <FormControl fullWidth>
-          <InputLabel>Task type</InputLabel>
-          <Select
-            value={taskType}
-            label="Task type"
-            onChange={(e) => setTaskType(e.target.value as TaskType)}
+        <FormControl component="fieldset" sx={{ mt: 2 }}>
+          <RadioGroup
+            row
+            value={taskKind}
+            onChange={e => setTaskKind(e.target.value as 'task' | 'scenario')}
           >
-            <MenuItem value="ANALYZE">Analysis (ANALYZE)</MenuItem>
-            <MenuItem value="CODE">Code generation (CODE)</MenuItem>
-            <MenuItem value="TEST">Test generation (TEST)</MenuItem>
-            <MenuItem value="ANALYZE_CODE">Analysis + Code (ANALYZE_CODE)</MenuItem>
-            <MenuItem value="ANALYZE_TEST">Analysis + Tests (ANALYZE_TEST)</MenuItem>
-          </Select>
+            <FormControlLabel value="task" control={<Radio />} label="Regular task" />
+            <FormControlLabel value="scenario" control={<Radio />} label="Scenario task" />
+          </RadioGroup>
         </FormControl>
 
-        <FormControl fullWidth>
-          <InputLabel>Model</InputLabel>
+        {taskKind === 'task' && (
+          <FormControl fullWidth>
+            <InputLabel>Task type</InputLabel>
+            <Select
+              value={taskType}
+              label="Task type"
+              onChange={(e) => setTaskType(e.target.value as TaskType)}
+            >
+              <MenuItem value="ANALYZE">Analysis (ANALYZE)</MenuItem>
+              <MenuItem value="CODE">Code generation (CODE)</MenuItem>
+              <MenuItem value="TEST">Test generation (TEST)</MenuItem>
+            </Select>
+          </FormControl>
+        )}
+        {taskKind === 'scenario' && (
+          <FormControl fullWidth>
+            <InputLabel>Scenario type</InputLabel>
+            <Select
+              value={scenarioType}
+              label="Scenario type"
+              onChange={(e) => setScenarioType(e.target.value as ScenarioType | '')}
+            >
+              <MenuItem value="">— None —</MenuItem>
+              <MenuItem value="ANALYZE_CODE">Analysis + Code (ANALYZE_CODE)</MenuItem>
+              <MenuItem value="ANALYZE_TEST">Analysis + Tests (ANALYZE_TEST)</MenuItem>
+              <MenuItem value="ANALYZE_CODE_TEST">Analysis + Code + Tests (ANALYZE_CODE_TEST)</MenuItem>
+            </Select>
+          </FormControl>
+        )}
+
+        <FormControl fullWidth sx={{ mt: 2 }}>
+          <InputLabel>Model (optional)</InputLabel>
           <Select
             value={modelName}
-            label="Model"
-            onChange={(e) => setModelName(e.target.value)}
+            label="Model (optional)"
+            onChange={e => setModelName(e.target.value)}
             disabled={modelsLoading}
-            endAdornment={modelsLoading ? <CircularProgress size={20} sx={{ mr: 2 }} /> : undefined}
           >
-            {availableModels.map((m) => (
-              <MenuItem key={m.id} value={m.id}>
-                {m.name}{m.id === defaultModel ? ' (default)' : ''}
-              </MenuItem>
+            <MenuItem value="">Default</MenuItem>
+            {models.map((m) => (
+              <MenuItem key={m.id} value={m.id}>{m.name}</MenuItem>
             ))}
           </Select>
         </FormControl>
@@ -144,7 +169,7 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClos
           rows={5}
           fullWidth
           value={description}
-          onChange={(e) => setDescription(e.target.value)}
+          onChange={e => setDescription(e.target.value)}
           placeholder="Describe what you want the AI to do..."
           required
         />
@@ -154,7 +179,7 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClos
         <Button
           variant="contained"
           onClick={handleCreate}
-          disabled={!description.trim() || loading}
+          disabled={!description.trim() || loading || (taskKind === 'scenario' && !scenarioType)}
           startIcon={loading ? <CircularProgress size={16} /> : undefined}
         >
           {loading ? 'Creating...' : 'Create task'}
@@ -163,4 +188,3 @@ export const CreateTaskDialog: React.FC<CreateTaskDialogProps> = ({ open, onClos
     </Dialog>
   );
 };
-
