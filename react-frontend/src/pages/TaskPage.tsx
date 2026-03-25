@@ -45,7 +45,7 @@ const statusConfig: Record<string, { label: string; color: 'default' | 'primary'
 
 const typeLabels: Record<string, string> = {
   ANALYZE: 'Analysis', CODE: 'Code generation', TEST: 'Test generation',
-  ANALYZE_CODE: 'Analysis + Code', ANALYZE_TEST: 'Analysis + Tests',
+  ANALYZE_CODE: 'Analysis + Code', ANALYZE_TEST: 'Analysis + Tests', ANALYZE_CODE_TEST: 'Analysis + Code + Tests',
 };
 
 function formatDuration(iso: string | null | undefined): string {
@@ -75,7 +75,7 @@ const mdStyles = {
 };
 
 const stageCircleBase = {
-  width: 220, borderRadius: '50px',
+  width: { xs: '90%', sm: 220 }, borderRadius: '50px',
   display: 'flex', flexDirection: 'column' as const, alignItems: 'center', justifyContent: 'center',
   px: 2, textAlign: 'center' as const,
 };
@@ -264,7 +264,8 @@ export const TaskPage: React.FC = () => {
 
   const isTerminal = (status?: string) => status === 'COMPLETED' || status === 'FAILED';
 
-  const isScenarioTask = (t: Task) => t.type === 'ANALYZE_CODE' || t.type === 'ANALYZE_TEST' || t.status === 'WAITING_SUBTASK';
+  const isScenarioTask = (t: Task) =>
+    t.scenarioType === 'ANALYZE_CODE' || t.scenarioType === 'ANALYZE_TEST' || t.status === 'WAITING_SUBTASK';
 
   const fetchTask = useCallback(async (silent = false) => {
     if (!taskId) return;
@@ -454,6 +455,15 @@ export const TaskPage: React.FC = () => {
     ? (statusConfig[task.status] ?? { label: task.status, color: 'default' as const, icon: <ScheduleIcon fontSize="small" /> })
     : null;
 
+  // Derived, non-mutating reversed history for stable rendering
+  const displayStageHistory = task?.stageHistory ? [...task.stageHistory].slice().reverse() : [];
+
+  // Subtasks progress
+  const totalSubtasks = subtasks.length;
+  const completedSubtasks = subtasks.filter(s => s.status === 'COMPLETED').length;
+  const progressPercent = totalSubtasks ? Math.round((completedSubtasks / totalSubtasks) * 100) : 0;
+
+  // Chat message sending handler
   const handleChatSend = async () => {
     if (!chatInput.trim() || !taskId || chatLoading) return;
     const userMsg: TaskChatMessage = { role: 'user', content: chatInput.trim() };
@@ -481,6 +491,17 @@ export const TaskPage: React.FC = () => {
       }, 100);
     }
   };
+
+  // Сабтаски: загружаем после завершения основной таски
+  useEffect(() => {
+    if (task && task.status === 'COMPLETED') {
+      setSubtasksLoading(true);
+      tasksApi.getSubtasks(task.id)
+        .then(setSubtasks)
+        .catch(() => setSubtasks([]))
+        .finally(() => setSubtasksLoading(false));
+    }
+  }, [task?.id, task?.status]);
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'grey.50', p: 3 }}>
@@ -779,7 +800,7 @@ export const TaskPage: React.FC = () => {
             </Paper>
 
             {/* ── Subtasks (scenario) ── */}
-            {isScenarioTask(task) && (
+            {(isScenarioTask(task) || (task.status === 'COMPLETED' && subtasks.length > 0)) && (
               <Paper elevation={2} sx={{ mb: 3 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 3, py: 2 }}>
                   <AccountTreeIcon color="primary" fontSize="small" />
@@ -788,44 +809,74 @@ export const TaskPage: React.FC = () => {
                 </Box>
                 <Divider />
                 <Box sx={{ px: 3, py: 2 }}>
+                  {/* Progress summary */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                    <Box sx={{ flexGrow: 1 }}>
+                      <LinearProgress variant="determinate" value={progressPercent} sx={{ height: 10, borderRadius: 2 }} />
+                    </Box>
+                    <Typography variant="body2" sx={{ width: 64, textAlign: 'right', fontWeight: 'bold' }}>{progressPercent}%</Typography>
+                  </Box>
+
                   {subtasks.length === 0 && !subtasksLoading && (
                     <Typography variant="body2" color="text.secondary">No subtasks yet</Typography>
                   )}
+
                   {subtasks.length > 0 && (
-                    <>
-                      <Stepper
-                        activeStep={subtasks.findIndex(s => s.status !== 'COMPLETED' && s.status !== 'FAILED')}
-                        alternativeLabel
-                        sx={{ mb: 2 }}
-                      >
+                    <Box sx={{ position: 'relative', pl: 3 }}>
+                      {/* vertical timeline line */}
+                      <Box sx={{ position: 'absolute', left: 28, top: 48, bottom: 16, width: 2, bgcolor: 'grey.300', zIndex: 0 }} />
+
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                         {subtasks
                           .sort((a, b) => (a.scenarioStep ?? 0) - (b.scenarioStep ?? 0))
-                          .map((sub) => {
+                          .map((sub, idx) => {
                             const subCfg = statusConfig[sub.status] ?? { label: sub.status, color: 'default' as const, icon: <ScheduleIcon fontSize="small" /> };
-                            const isError = sub.status === 'FAILED';
+                            const accentBg = sub.status === 'FAILED' ? '#c62828' : sub.status === 'COMPLETED' ? '#2e7d32' : '#1565c0';
+                            const start = sub.currentStage?.instantStart ?? sub.completedDatetime ?? null;
+                            const duration = sub.currentStage?.duration ?? null;
                             return (
-                              <Step key={sub.id} completed={sub.status === 'COMPLETED'}>
-                                <StepLabel
-                                  error={isError}
-                                  sx={{ cursor: 'pointer' }}
-                                  onClick={() => navigate(`/tasks/${sub.id}`)}
-                                >
-                                  <Typography variant="caption" fontWeight="bold">
-                                    {typeLabels[sub.type] ?? sub.type}
-                                  </Typography>
-                                  <Chip
-                                    icon={subCfg.icon}
-                                    label={subCfg.label}
-                                    color={subCfg.color}
-                                    size="small"
-                                    sx={{ mt: 0.5, fontSize: '0.65rem', height: 20 }}
-                                  />
-                                </StepLabel>
-                              </Step>
+                              <Box key={sub.id} sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', position: 'relative', zIndex: 1 }}>
+                                <Box sx={{ width: 56, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                  <Box sx={{ width: 44, height: 44, borderRadius: '8px', bgcolor: accentBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                                    {subCfg.icon}
+                                  </Box>
+                                  {/* connector line piece - hidden for last item */}
+                                  {idx < subtasks.length - 1 && (
+                                    <Box sx={{ width: 2, flexGrow: 1, bgcolor: 'grey.300', mt: 1 }} />
+                                  )}
+                                </Box>
+
+                                <Paper sx={{ p: 2, flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 1 }} onClick={() => navigate(`/tasks/${sub.id}`)}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2 }}>
+                                    <Box sx={{ minWidth: 0 }}>
+                                      <Typography variant="subtitle2" fontWeight="bold" noWrap sx={{ textOverflow: 'ellipsis' }}>{typeLabels[sub.type] ?? sub.type}</Typography>
+                                      <Typography variant="body2" color="text.secondary" noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{sub.description || (sub.result ? sub.result.slice(0, 140) : 'No description')}</Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0.5 }}>
+                                      <Chip label={subCfg.label} color={subCfg.color as any} size="small" />
+                                      <Typography variant="caption" color="text.secondary">{sub.scenarioStep ? `Step ${sub.scenarioStep}` : ''}</Typography>
+                                    </Box>
+                                  </Box>
+
+                                  {/* small timeline inside card */}
+                                  <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mt: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <ScheduleIcon fontSize="small" sx={{ color: 'text.secondary' }} />
+                                      <Typography variant="caption" color="text.secondary">
+                                        {start ? formatDateTime(start) : '—'}
+                                      </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      <Typography variant="caption" color="text.secondary">•</Typography>
+                                      <Typography variant="caption" color="text.secondary">{duration ? formatDuration(duration) : '—'}</Typography>
+                                    </Box>
+                                  </Box>
+                                </Paper>
+                              </Box>
                             );
                           })}
-                      </Stepper>
-                    </>
+                      </Box>
+                    </Box>
                   )}
                 </Box>
               </Paper>
@@ -907,8 +958,8 @@ export const TaskPage: React.FC = () => {
                           </Tooltip>
                           {task.stageHistory.length > 0 && <ArrowUpIcon sx={{ color: 'primary.light', fontSize: 24, my: 0.5 }} />}
                         </>)}
-                        {[...task.stageHistory].reverse().map((stage: TaskStage, idx: number) => (
-                          <Box key={stage.id ?? idx} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                        {displayStageHistory.map((stage: TaskStage, idx: number) => (
+                          <Box key={`${stage.id ?? 'i'+idx}-${stage.instantStart ?? ''}`} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                             <Tooltip title="Click for details">
                               <Box onClick={() => setSelectedStage(stage)} sx={{
                                 ...stageCircleBase, minHeight: 56, bgcolor: stageColor(stage).bg, color: 'white', py: 1, cursor: 'pointer',
@@ -919,7 +970,7 @@ export const TaskPage: React.FC = () => {
                                 <Typography variant="caption" sx={{ mt: 0.5, opacity: 0.8, fontSize: '0.7rem' }}>{formatDuration(stage.duration)}</Typography>
                               </Box>
                             </Tooltip>
-                            {idx < task.stageHistory.length - 1 && <ArrowUpIcon sx={{ color: 'grey.400', fontSize: 24, my: 0.5 }} />}
+                            {idx < displayStageHistory.length - 1 && <ArrowUpIcon sx={{ color: 'grey.400', fontSize: 24, my: 0.5 }} />}
                           </Box>
                         ))}
                       </Box>
@@ -945,8 +996,8 @@ export const TaskPage: React.FC = () => {
                           </Tooltip>
                           {task.stageHistory.length > 0 && <ArrowUpIcon sx={{ color: 'error.light', fontSize: 24, my: 0.5 }} />}
                         </>)}
-                        {[...task.stageHistory].reverse().map((stage: TaskStage, idx: number) => (
-                          <Box key={stage.id ?? idx} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                        {displayStageHistory.map((stage: TaskStage, idx: number) => (
+                          <Box key={`${stage.id ?? 'i'+idx}-${stage.instantStart ?? ''}`} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                             <Tooltip title="Click for details">
                               <Box onClick={() => setSelectedStage(stage)} sx={{
                                 ...stageCircleBase, minHeight: 56, bgcolor: stageColor(stage).bg, color: 'white', py: 1, cursor: 'pointer',
@@ -957,15 +1008,15 @@ export const TaskPage: React.FC = () => {
                                 <Typography variant="caption" sx={{ mt: 0.5, opacity: 0.8, fontSize: '0.7rem' }}>{formatDuration(stage.duration)}</Typography>
                               </Box>
                             </Tooltip>
-                            {idx < task.stageHistory.length - 1 && <ArrowUpIcon sx={{ color: 'grey.400', fontSize: 24, my: 0.5 }} />}
+                            {idx < displayStageHistory.length - 1 && <ArrowUpIcon sx={{ color: 'grey.400', fontSize: 24, my: 0.5 }} />}
                           </Box>
                         ))}
                       </Box>
                     ) : (
                       /* COMPLETED / WAITING_USER_INPUT / WAITING_USER_APPROVE: full history */
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        {[...task.stageHistory].reverse().map((stage: TaskStage, idx: number) => (
-                          <Box key={stage.id ?? idx} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                        {displayStageHistory.map((stage: TaskStage, idx: number) => (
+                          <Box key={`${stage.id ?? 'i'+idx}-${stage.instantStart ?? ''}`} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                             <Tooltip title="Click for details">
                               <Box onClick={() => setSelectedStage(stage)} sx={{
                                 ...stageCircleBase, minHeight: 72, bgcolor: stageColor(stage).bg, color: 'white', py: 1.5, cursor: 'pointer', boxShadow: 2,
@@ -976,7 +1027,7 @@ export const TaskPage: React.FC = () => {
                                 <Typography variant="caption" sx={{ mt: 0.5, opacity: 0.85, fontSize: '0.7rem' }}>{formatDuration(stage.duration)}</Typography>
                               </Box>
                             </Tooltip>
-                            {idx < task.stageHistory.length - 1 && <ArrowUpIcon sx={{ color: 'primary.light', fontSize: 28, my: 0.5 }} />}
+                            {idx < displayStageHistory.length - 1 && <ArrowUpIcon sx={{ color: 'primary.light', fontSize: 28, my: 0.5 }} />}
                           </Box>
                         ))}
                       </Box>

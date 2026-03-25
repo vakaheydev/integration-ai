@@ -51,7 +51,8 @@ export interface SearchResponse {
 
 // ---- Task models ----
 
-export type TaskType = 'CODE' | 'ANALYZE' | 'TEST' | 'ANALYZE_CODE' | 'ANALYZE_TEST';
+export type TaskType = 'CODE' | 'ANALYZE' | 'TEST';
+export type ScenarioType = 'ANALYZE_CODE' | 'ANALYZE_TEST' | 'ANALYZE_CODE_TEST';
 export type TaskStatus = 'CREATED' | 'RUNNING' | 'WAITING' | 'WAITING_USER_INPUT' | 'WAITING_USER_APPROVE' | 'WAITING_SUBTASK' | 'COMPLETED' | 'FAILED';
 
 export interface TaskStage {
@@ -89,6 +90,7 @@ export interface Task {
 
 export interface CreateTaskRequest {
   type: TaskType;
+  scenarioType?: ScenarioType;
   description: string;
   modelName?: string;
 }
@@ -104,4 +106,3 @@ export interface ModelsResponse {
   defaultModel: string;
   availableModels: AIModel[];
 }
-
