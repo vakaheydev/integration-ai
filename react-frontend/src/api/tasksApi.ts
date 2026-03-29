@@ -121,9 +121,11 @@ export const tasksApi = {
 
   // Approve or disapprove a task (WAITING_USER_APPROVE)
   approveTask: async (taskId: string, status: boolean, message?: string): Promise<Task> => {
+    // Use /api/me/tasks/{id}/approve (client baseURL already includes /api/me)
     const response = await apiClient.post<Task>(
       `tasks/${taskId}/approve`,
-      message ? { message } : {},
+      // send message body only when disapproving
+      status ? {} : { message },
       { params: { status } }
     );
     return response.data;
@@ -141,4 +143,3 @@ export const tasksApi = {
     return response.data;
   },
 };
-

@@ -3,6 +3,7 @@ import {
   Box, Paper, TextField, IconButton, Typography, Alert, CircularProgress,
   Chip, Dialog, DialogTitle, DialogContent, DialogActions, Button,
   MenuItem, Select, FormControl, InputLabel, Tooltip,
+  RadioGroup, FormControlLabel, Radio,
 } from '@mui/material';
 import {
   Send as SendIcon, ArrowBack as ArrowBackIcon, Description as DescriptionIcon,
@@ -11,7 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { documentsApi } from '../api/documentsApi';
 import { tasksApi } from '../api/tasksApi';
-import type { SwaggerDocument, ChatMessage, TaskType, AIModel } from '../models/types';
+import type { SwaggerDocument, ChatMessage, TaskType, AIModel, ScenarioType } from '../models/types';
 import { ChatMessageItem } from '../components/ChatMessageItem';
 import { SwaggerUIViewer } from '../components/SwaggerUIViewer';
 
@@ -47,6 +48,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
 
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [taskType, setTaskType] = useState<TaskType>('ANALYZE');
+  const [taskKind, setTaskKind] = useState<'task' | 'scenario'>('task');
+  const [scenarioType, setScenarioType] = useState<ScenarioType | ''>('');
   const [taskDescription, setTaskDescription] = useState('');
   const [taskCreating, setTaskCreating] = useState(false);
   const [taskError, setTaskError] = useState<string | null>(null);
@@ -101,13 +104,28 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
 
   const handleCreateTask = async () => {
     if (!taskDescription.trim()) return;
+    if (taskKind === 'scenario' && !scenarioType) {
+      setTaskError('Please select a scenario type');
+      return;
+    }
     setTaskCreating(true);
     setTaskError(null);
     try {
-      const task = await tasksApi.createTask(document.id, { type: taskType, description: taskDescription.trim() });
+      // Build request depending on selected kind
+      const request: any = { description: taskDescription.trim() };
+      if (taskKind === 'task') {
+        request.type = taskType;
+      } else {
+        // For scenario tasks use ANALYZE as the execution type and include scenarioType
+        request.type = 'ANALYZE';
+        request.scenarioType = scenarioType;
+      }
+      const task = await tasksApi.createTask(document.id, request);
       setTaskDialogOpen(false);
       setTaskDescription('');
       setTaskType('ANALYZE');
+      setTaskKind('task');
+      setScenarioType('');
       navigate(`/tasks/${task.id}`);
     } catch (err: any) {
       setTaskError(err.response?.data?.message || 'Error creating task');
@@ -291,20 +309,39 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({ document, onBack }
         <DialogTitle>Create Task</DialogTitle>
         <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           {taskError && <Alert severity="error">{taskError}</Alert>}
-          <FormControl fullWidth sx={{ mt: 1 }}>
-            <InputLabel>Task type</InputLabel>
-            <Select value={taskType} label="Task type" onChange={(e) => setTaskType(e.target.value as TaskType)}>
-              <MenuItem value="ANALYZE">Analysis (ANALYZE)</MenuItem>
-              <MenuItem value="CODE">Code generation (CODE)</MenuItem>
-              <MenuItem value="TEST">Test generation (TEST)</MenuItem>
-            </Select>
+          <FormControl component="fieldset">
+            <RadioGroup row value={taskKind} onChange={(e) => setTaskKind(e.target.value as 'task' | 'scenario')}>
+              <FormControlLabel value="task" control={<Radio />} label="Regular task" />
+              <FormControlLabel value="scenario" control={<Radio />} label="Scenario task" />
+            </RadioGroup>
           </FormControl>
+          {taskKind === 'scenario' && (
+            <FormControl fullWidth>
+              <InputLabel>Scenario type</InputLabel>
+              <Select value={scenarioType} label="Scenario type" onChange={(e) => setScenarioType(e.target.value as ScenarioType | '')}>
+                <MenuItem value="">— None —</MenuItem>
+                <MenuItem value="ANALYZE_CODE">Analysis + Code (ANALYZE_CODE)</MenuItem>
+                <MenuItem value="ANALYZE_TEST">Analysis + Tests (ANALYZE_TEST)</MenuItem>
+                <MenuItem value="ANALYZE_CODE_TEST">Analysis + Code + Tests (ANALYZE_CODE_TEST)</MenuItem>
+              </Select>
+            </FormControl>
+          )}
+          {taskKind === 'task' && (
+            <FormControl fullWidth sx={{ mt: 1 }}>
+              <InputLabel>Task type</InputLabel>
+              <Select value={taskType} label="Task type" onChange={(e) => setTaskType(e.target.value as TaskType)}>
+                <MenuItem value="ANALYZE">Analysis (ANALYZE)</MenuItem>
+                <MenuItem value="CODE">Code generation (CODE)</MenuItem>
+                <MenuItem value="TEST">Test generation (TEST)</MenuItem>
+              </Select>
+            </FormControl>
+          )}
           <TextField label="Description" multiline rows={5} fullWidth value={taskDescription}
             onChange={(e) => setTaskDescription(e.target.value)} placeholder="Describe what you want the AI to do..." />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setTaskDialogOpen(false)} disabled={taskCreating}>Cancel</Button>
-          <Button variant="contained" onClick={handleCreateTask} disabled={!taskDescription.trim() || taskCreating}
+          <Button variant="contained" onClick={handleCreateTask} disabled={!taskDescription.trim() || taskCreating || (taskKind === 'scenario' && !scenarioType)}
             startIcon={taskCreating ? <CircularProgress size={16} /> : undefined}>
             {taskCreating ? 'Creating...' : 'Create task'}
           </Button>
