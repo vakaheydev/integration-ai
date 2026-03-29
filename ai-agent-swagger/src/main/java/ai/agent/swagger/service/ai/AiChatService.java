@@ -1,6 +1,7 @@
 package ai.agent.swagger.service.ai;
 
 import ai.agent.swagger.config.AiModelProperties;
+import ai.agent.swagger.model.Task;
 import ai.agent.swagger.service.ChatAssistant;
 import ai.agent.swagger.service.StatelessChatAssistant;
 import ai.agent.swagger.service.SwaggerServiceAi;
@@ -24,23 +25,27 @@ public class AiChatService {
     private final AiModelProperties modelProperties;
     private final SwaggerServiceDocument swaggerServiceDocument;
     private final SwaggerServiceAi swaggerServiceAi;
+    private final ApiCallTools apiCallTools;
     private final Map<String, ChatMemory> memoryStore = new ConcurrentHashMap<>();
 
     private final Map<String, ChatModel> chatModelCache = new ConcurrentHashMap<>();
     private final Map<String, StatelessChatAssistant> statelessCache = new ConcurrentHashMap<>();
     private final Map<String, ChatAssistant> chatAssistantCache = new ConcurrentHashMap<>();
     private final Map<String, ChatAssistant> swaggerToolsCache = new ConcurrentHashMap<>();
+    private final Map<String, ChatAssistant> taskAnalysisCache = new ConcurrentHashMap<>();
 
     public AiChatService(
             @Value("${secrets.polza.api-key}") String apiKey,
             AiModelProperties modelProperties,
             SwaggerServiceDocument swaggerServiceDocument,
-            @Lazy SwaggerServiceAi swaggerServiceAi
+            @Lazy SwaggerServiceAi swaggerServiceAi,
+            ApiCallTools apiCallTools
     ) {
         this.apiKey = apiKey;
         this.modelProperties = modelProperties;
         this.swaggerServiceDocument = swaggerServiceDocument;
         this.swaggerServiceAi = swaggerServiceAi;
+        this.apiCallTools = apiCallTools;
     }
 
     @PostConstruct
@@ -95,6 +100,25 @@ public class AiChatService {
         }
     }
 
+    // ── chat для анализа задач (swagger tools + api call tools) ──────────────
+
+    /**
+     * Chat для ноды анализа задачи. Использует оба набора инструментов.
+     * Управляет SwaggerToolsContext и ApiCallToolsContext — вызывающей стороне не нужно.
+     */
+    public String chatForTaskAnalysis(Task task, String prompt, String modelName) {
+        String model = resolveModel(modelName);
+        ChatAssistant assistant = taskAnalysisCache.computeIfAbsent(model, this::buildTaskAnalysisAssistant);
+        SwaggerToolsContext.set(task.getUserId());
+        ApiCallToolsContext.set(task, task.getApprovedApiCalls());
+        try {
+            return assistant.chat(task.getUserId(), prompt);
+        } finally {
+            SwaggerToolsContext.clear();
+            ApiCallToolsContext.clear();
+        }
+    }
+
     // ── model resolution ─────────────────────────────────────────────────────
 
     private String resolveModel(String modelName) {
@@ -136,10 +160,21 @@ public class AiChatService {
         return AiServices.builder(ChatAssistant.class)
                 .chatModel(getOrCreateChatModel(modelId))
                 .chatMemoryProvider(userId -> memoryStore.computeIfAbsent(
-                        userId.toString(),
+                        userId.toString() + ":swagger",
                         id -> MessageWindowChatMemory.withMaxMessages(10)
                 ))
                 .tools(new SwaggerTools(swaggerServiceDocument, swaggerServiceAi))
+                .build();
+    }
+
+    private ChatAssistant buildTaskAnalysisAssistant(String modelId) {
+        return AiServices.builder(ChatAssistant.class)
+                .chatModel(getOrCreateChatModel(modelId))
+                .chatMemoryProvider(userId -> memoryStore.computeIfAbsent(
+                        userId.toString() + ":analysis",
+                        id -> MessageWindowChatMemory.withMaxMessages(10)
+                ))
+                .tools(new SwaggerTools(swaggerServiceDocument, swaggerServiceAi), apiCallTools)
                 .build();
     }
 }

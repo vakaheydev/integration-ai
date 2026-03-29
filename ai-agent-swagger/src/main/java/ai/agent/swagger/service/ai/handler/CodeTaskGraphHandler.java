@@ -44,7 +44,7 @@ public class CodeTaskGraphHandler implements TaskGraphNodeHandler {
                     task.getDescription(), availableTools,
                     task.getPreviousResult(), task.getUserMessage(), task.getChainInput());
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
+        return aiChatService.chatForTaskAnalysis(task, prompt, task.getModelName());
     }
 
     @Override
@@ -58,7 +58,7 @@ public class CodeTaskGraphHandler implements TaskGraphNodeHandler {
         } else {
             prompt = promptBuilderService.getCodeTaskRetryGeneralPrompt(task.getDescription(), feedback, availableTools);
         }
-        return aiChatService.chatWithSwaggerTools(task.getUserId(), prompt, task.getModelName());
+        return aiChatService.chatForTaskAnalysis(task, prompt, task.getModelName());
     }
 
     @Override

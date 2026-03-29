@@ -92,18 +92,23 @@ public class TaskProcessorService {
     }
 
     private void applyWaitingUserApprove(Task task, TaskResult taskResult) {
-        log.info("Task id={} paused, waiting for user approval to execute code", task.getId());
+        log.info("Task id={} paused, waiting for user approval (type={})", task.getId(),
+                task.getPendingApproval() != null ? task.getPendingApproval().getType() : "unknown");
         Task current = taskService.getTaskById(task.getId())
                 .orElseThrow(() -> new IllegalStateException("Task not found: " + task.getId()));
         current.setStatus(TaskStatus.WAITING_USER_APPROVE);
-        current.setStatusDescription("Code ready for review and approval");
 
-        // Устанавливаем статус, описание аппрува и результат (код) на текущий стейдж
+        String approveDescription = current.getPendingApproval() != null
+                ? current.getPendingApproval().getDescription()
+                : taskResult.getResult();
+        current.setStatusDescription(approveDescription);
+
+        // Устанавливаем статус, описание аппрува и результат на текущий стейдж
         Stage currentStage = current.getCurrentStage();
         if (currentStage != null) {
             current.setCurrentStage(currentStage.toBuilder()
                     .status(TaskStatus.WAITING_USER_APPROVE)
-                    .approveDescription(current.getApproveDescription())
+                    .approveDescription(approveDescription)
                     .result(current.getResult())
                     .build());
         }

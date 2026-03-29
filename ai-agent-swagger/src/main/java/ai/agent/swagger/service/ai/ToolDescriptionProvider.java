@@ -13,14 +13,22 @@ import java.util.stream.Collectors;
 public class ToolDescriptionProvider {
 
     private final SwaggerTools swaggerTools;
+    private final ApiCallTools apiCallTools;
 
-    public ToolDescriptionProvider(SwaggerTools swaggerTools) {
+    public ToolDescriptionProvider(SwaggerTools swaggerTools, ApiCallTools apiCallTools) {
         this.swaggerTools = swaggerTools;
+        this.apiCallTools = apiCallTools;
     }
 
     public String getToolsDescription() {
         List<String> lines = new ArrayList<>();
-        for (Method method : swaggerTools.getClass().getDeclaredMethods()) {
+        collectToolDescriptions(lines, swaggerTools);
+        collectToolDescriptions(lines, apiCallTools);
+        return String.join("\n", lines);
+    }
+
+    private void collectToolDescriptions(List<String> lines, Object toolsInstance) {
+        for (Method method : toolsInstance.getClass().getDeclaredMethods()) {
             Tool annotation = method.getAnnotation(Tool.class);
             if (annotation == null) {
                 continue;
@@ -29,7 +37,6 @@ public class ToolDescriptionProvider {
             String signature = buildSignature(method);
             lines.add("- " + signature + ": " + description);
         }
-        return String.join("\n", lines);
     }
 
     private String buildSignature(Method method) {

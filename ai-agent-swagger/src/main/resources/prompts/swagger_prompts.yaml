@@ -21,8 +21,9 @@ prompts:
       STRICT OUTPUT RULES:
       1) Each step must be specific and actionable.
       2) Do NOT include markdown, code fences, comments, or prose outside the format above.
-      3) The answer MUST follow the output format exactly.
+      3) The answer MUST follow the output format exactly (GOAL, CONTRACTS, STEPS, EXPECTED RESULT).
       4) Do NOT include any code or code snippets in the plan. Steps must describe WHAT to do, not HOW to implement it in code.
+      5) The CONTRACTS section is REQUIRED. If no API endpoints are involved, write "CONTRACTS: none".
 
     code: |
       STRICT OUTPUT RULES:
@@ -118,12 +119,21 @@ prompts:
         IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method names, field names, document IDs) MUST be explicitly included in the plan steps.
         Answer on language of task_description.
 
+        CONTRACT ANALYSIS: For each API endpoint relevant to the task, identify and include its contract:
+        - INPUT CONTRACT: required/optional parameters, headers, request body schema (field names and types)
+        - OUTPUT CONTRACT: expected HTTP status codes and response body schema (field names and types)
+        Use getSwaggerMethod and getSwaggerSchema tools to retrieve exact contract details from the document.
+        If a server base URL is available in the document and the task requires verifying live behavior, use executeGet/executePost/executePut/executeDelete/executePatch tools to call the API and confirm the actual response status and structure matches the contract.
+        Include verified contract information explicitly in the plan steps so the executing AI has all details.
+
         CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
         <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
         Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
 
         Output format (strictly follow this structure):
         GOAL: <one sentence — what needs to be done>
+        CONTRACTS:
+        - <METHOD> <path>: INPUT: <brief input contract> | OUTPUT: <status codes and response schema> | VERIFIED: <yes/no — whether live call was made>
         STEPS:
         1. <step> — tool: <tool name or "none">
         2. <step> — tool: <tool name or "none">
@@ -213,6 +223,13 @@ prompts:
         Execute the task strictly following the EXECUTION_PLAN step by step.
         Use the tools specified in each step. Do not skip steps.
         The result must directly solve the task described in TASK_DESCRIPTION.
+
+        CONTRACT VERIFICATION: If the EXECUTION_PLAN contains a CONTRACTS section, include in your result:
+        - The input/output contract for each relevant API endpoint
+        - Whether the contract was verified by a live API call (use executeGet/executePost/executePut/executeDelete/executePatch if needed)
+        - The actual HTTP status and response structure observed (if verified)
+        - Any discrepancies between the declared contract and the live API behavior
+
         CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
         Answer on language of task_description.
 
@@ -289,12 +306,20 @@ prompts:
         IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
         Answer on language of task_description.
 
+        CONTRACT ANALYSIS: If the task involves API endpoints, identify the contract for each relevant endpoint:
+        - INPUT CONTRACT: required/optional parameters, headers, request body schema
+        - OUTPUT CONTRACT: expected HTTP status codes and response body schema
+        If the task description contains a base URL or endpoint addresses, use executeGet/executePost/executePut/executeDelete/executePatch tools to call the API and verify the actual response status and structure.
+        Include verified contract information explicitly in the plan steps.
+
         CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
         <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
         Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
 
         Output format (strictly follow this structure):
         GOAL: <one sentence — what needs to be done>
+        CONTRACTS:
+        - <METHOD> <path>: INPUT: <brief input contract> | OUTPUT: <status codes and response schema> | VERIFIED: <yes/no — whether live call was made>
         STEPS:
         1. <step> — tool: <tool name or "none">
         2. <step> — tool: <tool name or "none">

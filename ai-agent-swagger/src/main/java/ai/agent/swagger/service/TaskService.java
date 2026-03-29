@@ -141,8 +141,11 @@ public class TaskService {
         if (patch.getUserInputResponse() != null) existing.setUserInputResponse(patch.getUserInputResponse());
         if (patch.getModelName() != null)         existing.setModelName(patch.getModelName());
         if (patch.getChainInput() != null)        existing.setChainInput(patch.getChainInput());
-        if (patch.getApproveDescription() != null) existing.setApproveDescription(patch.getApproveDescription());
-        if (patch.getApproveMessage() != null)     existing.setApproveMessage(patch.getApproveMessage());
+        if (patch.getApproveMessage() != null)    existing.setApproveMessage(patch.getApproveMessage());
+        if (patch.getPendingApproval() != null)    existing.setPendingApproval(patch.getPendingApproval());
+        if (patch.getApprovedApiCalls() != null && !patch.getApprovedApiCalls().isEmpty()) {
+            existing.setApprovedApiCalls(patch.getApprovedApiCalls());
+        }
 
         Task saved = taskRepository.save(existing);
         log.debug("Updated task id={}", saved.getId());
@@ -195,6 +198,8 @@ public class TaskService {
         task.setResult(null);
         task.setUserMessage(userMessage);
         task.setApproved(false);
+        task.setPendingApproval(null);
+        task.setApprovedApiCalls(new java.util.HashSet<>());
         Task saved = taskRepository.save(task);
         log.debug("Restarted task id={} with userMessage={}", id, userMessage);
         return saved;
@@ -341,6 +346,43 @@ public class TaskService {
         }
 
         throw new IllegalArgumentException("Stage id=" + stageId + " not found in task id=" + taskId);
+    }
+
+    // ── Approval helpers ──────────────────────────────────────────────────────
+
+    /**
+     * Очищает pendingApproval задачи после обработки решения пользователя.
+     */
+    public void clearPendingApproval(String taskId) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+        task.setPendingApproval(null);
+        taskRepository.save(task);
+        log.debug("Cleared pendingApproval for task id={}", taskId);
+    }
+
+    /**
+     * Добавляет API вызов в список одобренных и очищает pendingApproval.
+     */
+    public void approveApiCall(String taskId, String callKey) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+        task.getApprovedApiCalls().add(callKey);
+        task.setPendingApproval(null);
+        taskRepository.save(task);
+        log.debug("Approved API call '{}' for task id={}", callKey, taskId);
+    }
+
+    /**
+     * Добавляет API вызов в список отклонённых и очищает pendingApproval.
+     */
+    public void rejectApiCall(String taskId, String callKey) {
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new IllegalArgumentException("Task not found: " + taskId));
+        task.getApprovedApiCalls().add(ai.agent.swagger.service.ai.approval.ApiCallApprovalHandler.REJECTED_PREFIX + callKey);
+        task.setPendingApproval(null);
+        taskRepository.save(task);
+        log.debug("Rejected API call '{}' for task id={}", callKey, taskId);
     }
 }
 

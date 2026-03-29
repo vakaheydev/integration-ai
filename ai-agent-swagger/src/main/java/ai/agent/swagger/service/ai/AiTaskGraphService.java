@@ -2,10 +2,14 @@ package ai.agent.swagger.service.ai;
 
 import ai.agent.swagger.exception.UserApproveRequiredException;
 import ai.agent.swagger.exception.UserInputRequiredException;
+import ai.agent.swagger.model.ApprovalType;
+import ai.agent.swagger.model.PendingApproval;
 import ai.agent.swagger.model.Task;
 import ai.agent.swagger.model.TaskStatus;
 import ai.agent.swagger.model.TaskType;
 import ai.agent.swagger.service.TaskService;
+import ai.agent.swagger.service.ai.approval.UserApprovalHandler;
+import ai.agent.swagger.service.ai.approval.UserApprovalHandlerRouter;
 import ai.agent.swagger.service.ai.handler.TaskGraphHandlerRouter;
 import ai.agent.swagger.service.ai.handler.TaskGraphNodeHandler;
 import ai.agent.swagger.service.executor.CodeExecutionResult;
@@ -79,6 +83,7 @@ public class AiTaskGraphService {
     private final TaskService taskService;
     private final ToolDescriptionProvider toolDescriptionProvider;
     private final TaskGraphHandlerRouter handlerRouter;
+    private final UserApprovalHandlerRouter approvalHandlerRouter;
     private final AiChatService aiChatService;
     private final ai.agent.swagger.service.PromptBuilderService promptBuilderService;
     private final PythonCodeExecutorService pythonCodeExecutorService;
@@ -86,12 +91,14 @@ public class AiTaskGraphService {
     public AiTaskGraphService(TaskService taskService,
                               ToolDescriptionProvider toolDescriptionProvider,
                               TaskGraphHandlerRouter handlerRouter,
+                              UserApprovalHandlerRouter approvalHandlerRouter,
                               AiChatService aiChatService,
                               ai.agent.swagger.service.PromptBuilderService promptBuilderService,
                               PythonCodeExecutorService pythonCodeExecutorService) {
         this.taskService = taskService;
         this.toolDescriptionProvider = toolDescriptionProvider;
         this.handlerRouter = handlerRouter;
+        this.approvalHandlerRouter = approvalHandlerRouter;
         this.aiChatService = aiChatService;
         this.promptBuilderService = promptBuilderService;
         this.pythonCodeExecutorService = pythonCodeExecutorService;
@@ -111,6 +118,22 @@ public class AiTaskGraphService {
             return matcher.group(1).strip();
         }
         return null;
+    }
+
+    /**
+     * Проверяет ответ ИИ на маркер NEED_USER_INPUT.
+     * Если маркер найден — сохраняет вопрос в задаче и бросает UserInputRequiredException.
+     */
+    private void throwIfUserInputRequired(String aiResponse, String taskId, int stageId, Task task) {
+        String question = extractUserInputQuestion(aiResponse);
+        if (question == null) return;
+        log.info("AI requested user input for task id={}: {}", taskId, question);
+        taskService.changeStage(taskId, stageId, "AI requested user input", question, TaskStatus.COMPLETED);
+        Task patch = new Task();
+        patch.setId(taskId);
+        patch.setAiQuestion(question);
+        taskService.updateTask(patch);
+        throw new UserInputRequiredException(question);
     }
 
     public Map<String, Object> runGraphTaskHandle(Task task) throws GraphStateException {
@@ -137,7 +160,7 @@ public class AiTaskGraphService {
                         String original = task.getUserMessage() != null ? task.getUserMessage() : "";
                         task.setUserMessage(original + "\n\nAI REVIEW OF PREVIOUS RESULT:\n" + previousReview);
                     }
-                    // Если есть ответ пользователя на предыдущий вопрос ИИ — добавляем контекст
+                    // Если есть ответ пользователя на уточняющий вопрос ИИ — добавляем контекст
                     if (task.getUserInputResponse() != null && !task.getUserInputResponse().isBlank()) {
                         String original = task.getUserMessage() != null ? task.getUserMessage() : "";
                         String inputContext = "\n\n<<<USER_INPUT_CONTEXT>>>\n"
@@ -150,18 +173,18 @@ public class AiTaskGraphService {
                     }
                     String answer = Objects.toString(handler.analyze(task, availableTools), "");
 
-                    // Проверяем, не запросил ли ИИ ввод пользователя
-                    String question = extractUserInputQuestion(answer);
-                    if (question != null) {
-                        log.info("AI requested user input for task id={}: {}", task.getId(), question);
-                        taskService.changeStage(task.getId(), stageId, "AI requested user input", question, TaskStatus.COMPLETED);
-                        // Сохраняем вопрос через patch без копирования всего task (task.toBuilder() скопирует status=CREATED)
-                        Task patch = new Task();
-                        patch.setId(task.getId());
-                        patch.setAiQuestion(question);
-                        taskService.updateTask(patch);
-                        throw new UserInputRequiredException(question);
+                    // ИИ запросил аппрув API вызова — переводим задачу в WAITING_USER_APPROVE
+                    // Проверяем task.pendingApproval (устанавливается в ApiCallTools.savePendingApproval),
+                    // а не текст ответа LLM — LLM не обязан повторять маркер в финальном ответе
+                    if (task.getPendingApproval() != null) {
+                        String description = task.getPendingApproval().getDescription();
+                        log.info("AI requested API call approval in analyze_task for task id={}: {}", task.getId(), description);
+                        taskService.changeStage(task.getId(), stageId, "Awaiting API call approval", description, TaskStatus.COMPLETED);
+                        throw new UserApproveRequiredException(description);
                     }
+
+                    // ИИ запросил уточняющий ввод пользователя
+                    throwIfUserInputRequired(answer, task.getId(), stageId, task);
 
                     taskService.changeStage(task.getId(), stageId, "Task analyzed", answer, TaskStatus.COMPLETED);
                     return Map.of(TaskState.TASK_ANALYSIS, answer);
@@ -172,6 +195,13 @@ public class AiTaskGraphService {
                     int retryCnt = state.retryCnt() + 1;
                     String feedback = state.feedback().orElse("");
                     String answer = Objects.toString(handler.retryAnalyze(task, feedback, availableTools), "");
+                    if (task.getPendingApproval() != null) {
+                        String description = task.getPendingApproval().getDescription();
+                        log.info("AI requested API call approval in retry_analyze_task for task id={}: {}", task.getId(), description);
+                        taskService.changeStage(task.getId(), stageId, "Awaiting API call approval", description, TaskStatus.COMPLETED);
+                        throw new UserApproveRequiredException(description);
+                    }
+                    throwIfUserInputRequired(answer, task.getId(), stageId, task);
                     taskService.changeStage(task.getId(), stageId, "Retry analysis completed", answer, TaskStatus.COMPLETED);
                     return Map.of(TaskState.TASK_ANALYSIS, answer, TaskState.RETRY_CNT, retryCnt);
                 }))
@@ -199,8 +229,17 @@ public class AiTaskGraphService {
                     try {
                         String analysis = state.taskAnalysis().orElse("");
                         String result = Objects.toString(handler.execute(task, analysis), "");
+                        if (task.getPendingApproval() != null) {
+                            String description = task.getPendingApproval().getDescription();
+                            log.info("AI requested API call approval in handle_analysis for task id={}: {}", task.getId(), description);
+                            taskService.changeStage(task.getId(), stageId, "Awaiting API call approval", description, TaskStatus.COMPLETED);
+                            throw new UserApproveRequiredException(description);
+                        }
+                        throwIfUserInputRequired(result, task.getId(), stageId, task);
                         taskService.changeStage(task.getId(), stageId, "Task executed", result, TaskStatus.COMPLETED);
                         return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, 0, TaskState.FAILED, "");
+                    } catch (UserApproveRequiredException | UserInputRequiredException e) {
+                        throw e;
                     } catch (Exception e) {
                         log.error("Error during task execution, will trigger retry", e);
                         String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
@@ -216,8 +255,17 @@ public class AiTaskGraphService {
                         String analysis = state.taskAnalysis().orElse("");
                         String errorMessage = state.failedMessage();
                         String result = Objects.toString(handler.executeAfterError(task, analysis, errorMessage), "");
+                        if (task.getPendingApproval() != null) {
+                            String description = task.getPendingApproval().getDescription();
+                            log.info("AI requested API call approval in handle_analysis_after_error for task id={}: {}", task.getId(), description);
+                            taskService.changeStage(task.getId(), stageId, "Awaiting API call approval", description, TaskStatus.COMPLETED);
+                            throw new UserApproveRequiredException(description);
+                        }
+                        throwIfUserInputRequired(result, task.getId(), stageId, task);
                         taskService.changeStage(task.getId(), stageId, "Retry execution succeeded", result, TaskStatus.COMPLETED);
                         return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, retryCnt, TaskState.FAILED, "");
+                    } catch (UserApproveRequiredException | UserInputRequiredException e) {
+                        throw e;
                     } catch (Exception e) {
                         log.error("Error during handle_analysis_after_error", e);
                         String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
@@ -233,8 +281,17 @@ public class AiTaskGraphService {
                         String analysis = state.taskAnalysis().orElse("");
                         String feedback = state.feedback().orElse("");
                         String result = Objects.toString(handler.retryExecute(task, analysis, feedback), "");
+                        if (task.getPendingApproval() != null) {
+                            String description = task.getPendingApproval().getDescription();
+                            log.info("AI requested API call approval in retry_handle_analysis for task id={}: {}", task.getId(), description);
+                            taskService.changeStage(task.getId(), stageId, "Awaiting API call approval", description, TaskStatus.COMPLETED);
+                            throw new UserApproveRequiredException(description);
+                        }
+                        throwIfUserInputRequired(result, task.getId(), stageId, task);
                         taskService.changeStage(task.getId(), stageId, "Retry execution succeeded", result, TaskStatus.COMPLETED);
                         return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, retryCnt, TaskState.FAILED, "");
+                    } catch (UserApproveRequiredException | UserInputRequiredException e) {
+                        throw e;
                     } catch (Exception e) {
                         log.error("Error during retry_handle_analysis", e);
                         String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
@@ -250,8 +307,17 @@ public class AiTaskGraphService {
                         String analysis = state.taskAnalysis().orElse("");
                         String errorMessage = state.failedMessage();
                         String result = Objects.toString(handler.executeAfterError(task, analysis, errorMessage), "");
+                        if (task.getPendingApproval() != null) {
+                            String description = task.getPendingApproval().getDescription();
+                            log.info("AI requested API call approval in retry_handle_analysis_after_error for task id={}: {}", task.getId(), description);
+                            taskService.changeStage(task.getId(), stageId, "Awaiting API call approval", description, TaskStatus.COMPLETED);
+                            throw new UserApproveRequiredException(description);
+                        }
+                        throwIfUserInputRequired(result, task.getId(), stageId, task);
                         taskService.changeStage(task.getId(), stageId, "Retry execution succeeded", result, TaskStatus.COMPLETED);
                         return Map.of(TaskState.RESULT, result, TaskState.RETRY_CNT, retryCnt, TaskState.FAILED, "");
+                    } catch (UserApproveRequiredException | UserInputRequiredException e) {
+                        throw e;
                     } catch (Exception e) {
                         log.error("Error during retry_handle_analysis_after_error", e);
                         String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getName();
@@ -309,20 +375,24 @@ public class AiTaskGraphService {
                 .addNode("approve_code", node_async(state -> {
                     int stageId = taskService.changeCurrentStage(task.getId(), "Code generated, waiting for user approval");
                     String result = state.result().orElse("");
-                    // Генерируем короткое описание того, что нужно заапрувить
+                    // Генерируем человекочитаемое описание для пользователя
                     String codeSummary = result.length() > 500 ? result.substring(0, 500) + "..." : result;
                     String approvePrompt = promptBuilderService.getApproveDescriptionPrompt(
                             task.getDescription(), codeSummary);
-                    String approveDescription = Objects.toString(
+                    String description = Objects.toString(
                             aiChatService.chatStateless(approvePrompt, task.getModelName()), "");
-                    // Сохраняем сгенерированный код и описание аппрува в task
+                    // Сохраняем код и pendingApproval в task
                     Task patch = new Task();
                     patch.setId(task.getId());
                     patch.setResult(result);
-                    patch.setApproveDescription(approveDescription);
+                    patch.setPendingApproval(PendingApproval.builder()
+                            .type(ApprovalType.CODE_EXECUTION)
+                            .description(description)
+                            .build());
                     taskService.updateTask(patch);
+                    task.setPendingApproval(patch.getPendingApproval()); // sync in-memory
                     taskService.changeStage(task.getId(), stageId, "Awaiting user approval", result, TaskStatus.COMPLETED);
-                    throw new UserApproveRequiredException(result);
+                    throw new UserApproveRequiredException(description);
                 }))
 
                 .addNode("execute_code", node_async(state -> {
@@ -393,28 +463,32 @@ public class AiTaskGraphService {
                 .addConditionalEdges(
                         START,
                         edge_async(state -> {
-                            // Если таска одобрена для запуска кода — сразу к execute_code
-                            if (task.isApproved()) return "execute_code";
+                            // Если есть ожидающий аппрув — обрабатываем решение пользователя
+                            if (task.getPendingApproval() != null) {
+                                UserApprovalHandler approvalHandler =
+                                        approvalHandlerRouter.getHandler(task.getPendingApproval().getType());
+                                if (task.isApproved()) {
+                                    return approvalHandler.onApproved(task, taskService);
+                                }
+                                if (task.getApproveMessage() != null && !task.getApproveMessage().isBlank()) {
+                                    return approvalHandler.onRejected(task, task.getApproveMessage(), taskService);
+                                }
+                            }
 
-                            // Если код был отклонён пользователем — переписать с учётом комментария
-                            boolean isDisapproved = !task.isApproved()
-                                    && task.getApproveMessage() != null
-                                    && !task.getApproveMessage().isBlank();
-                            if (isDisapproved) return "rewrite_disapproved";
+                            // Если таска возобновлена после ответа пользователя на вопрос ИИ
+                            if (task.getUserInputResponse() != null && !task.getUserInputResponse().isBlank()) {
+                                return "analyze_task";
+                            }
 
-                            // Если таска возобновлена после ответа пользователя — сразу к анализу
-                            boolean isResumedAfterUserInput = task.getUserInputResponse() != null
-                                    && !task.getUserInputResponse().isBlank();
-                            if (isResumedAfterUserInput) return "analyze";
-
+                            // Обычный старт или рестарт
                             boolean isRestarted = (task.getPreviousResult() != null && !task.getPreviousResult().isBlank())
                                     || (task.getUserMessage() != null && !task.getUserMessage().isBlank());
-                            return isRestarted ? "review_previous" : "analyze";
+                            return isRestarted ? "review_previous_result" : "analyze_task";
                         }),
-                        Map.of("review_previous", "review_previous_result",
-                               "analyze", "analyze_task",
+                        Map.of("review_previous_result", "review_previous_result",
+                               "analyze_task", "analyze_task",
                                "execute_code", "execute_code",
-                               "rewrite_disapproved", "rewrite_disapproved_code")
+                               "rewrite_disapproved_code", "rewrite_disapproved_code")
                 )
                 .addEdge("review_previous_result", "analyze_task")
                 .addEdge("analyze_task", "review_task_analysis")
@@ -425,7 +499,7 @@ public class AiTaskGraphService {
                         "review_task_analysis_solution",
                         edge_async(state -> {
                             int retryCnt = state.retryCnt();
-                            if (retryCnt > 2) {
+                            if (retryCnt > 6) {
                                 log.info("Превышено количество попыток, ответ считается одобренным");
                                 return "approved";
                             }
@@ -441,7 +515,7 @@ public class AiTaskGraphService {
                         edge_async(state -> {
                             String error = state.failedMessage();
                             if (error == null || error.isBlank()) return "ok";
-                            if (state.retryCnt() > 2) throw new IllegalStateException(
+                            if (state.retryCnt() > 6) throw new IllegalStateException(
                                     "Task execution failed after maximum retries for task id=" + task.getId() + ". Last error: " + error);
                             return "error";
                         }),
@@ -453,7 +527,7 @@ public class AiTaskGraphService {
                         edge_async(state -> {
                             String error = state.failedMessage();
                             if (error == null || error.isBlank()) return "ok";
-                            if (state.retryCnt() > 2) throw new IllegalStateException(
+                            if (state.retryCnt() > 6) throw new IllegalStateException(
                                     "Task execution failed after maximum retries for task id=" + task.getId() + ". Last error: " + error);
                             return "error";
                         }),
@@ -466,7 +540,7 @@ public class AiTaskGraphService {
                         "review_handle_analysis_solution",
                         edge_async(state -> {
                             int retryCnt = state.retryCnt();
-                            if (retryCnt > 2) {
+                            if (retryCnt > 6) {
                                 log.info("Превышено количество попыток, ответ считается одобренным");
                                 return "approved";
                             }
@@ -484,7 +558,7 @@ public class AiTaskGraphService {
                         edge_async(state -> {
                             String error = state.failedMessage();
                             if (error == null || error.isBlank()) return "ok";
-                            if (state.retryCnt() > 2) throw new IllegalStateException(
+                            if (state.retryCnt() > 6) throw new IllegalStateException(
                                     "Task execution failed after maximum retries for task id=" + task.getId() + ". Last error: " + error);
                             return "error";
                         }),
@@ -496,7 +570,7 @@ public class AiTaskGraphService {
                         edge_async(state -> {
                             String error = state.failedMessage();
                             if (error == null || error.isBlank()) return "ok";
-                            if (state.retryCnt() > 2) throw new IllegalStateException(
+                            if (state.retryCnt() > 6) throw new IllegalStateException(
                                     "Task execution failed after maximum retries for task id=" + task.getId() + ". Last error: " + error);
                             return "error";
                         }),
@@ -513,7 +587,7 @@ public class AiTaskGraphService {
                         "review_code_execution_solution",
                         edge_async(state -> {
                             int retryCnt = state.execRetryCnt();
-                            if (retryCnt > 2) {
+                            if (retryCnt > 6) {
                                 log.info("Превышено кол-во попыток переписывания кода, берём текущий результат");
                                 return "done";
                             }

@@ -9,7 +9,9 @@ import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Data
 @NoArgsConstructor
@@ -49,14 +51,25 @@ public class Task {
     /** Идентификатор модели ИИ для выполнения таски (null = дефолтная) */
     private String modelName;
 
-    /** Флаг подтверждения пользователем запуска кода (для CODE/TEST тасок) */
+    /** Флаг подтверждения пользователем (true/false, устанавливается через /approve) */
     private boolean approved;
 
-    /** Описание того, что именно нужно подтвердить (заполняется при WAITING_USER_APPROVE) */
-    private String approveDescription;
-
-    /** Комментарий пользователя при отклонении кода (заполняется через /approve?status=false) */
+    /** Комментарий пользователя при отклонении (заполняется через /approve?status=false) */
     private String approveMessage;
+
+    /**
+     * Описание текущего ожидающего аппрува.
+     * Устанавливается перед переходом в WAITING_USER_APPROVE, очищается после обработки решения.
+     */
+    private PendingApproval pendingApproval;
+
+    /**
+     * Множество одобренных пользователем API вызовов — "METHOD::URL".
+     * Отклонённые вызовы хранятся с префиксом "REJECTED_METHOD::URL".
+     * Накапливается в течение жизни задачи.
+     */
+    @Builder.Default
+    private Set<String> approvedApiCalls = new HashSet<>();
 
     /** Результат предыдущего шага сценария (заполняется при цепочке подзадач) */
     private String chainInput;
