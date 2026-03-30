@@ -43,11 +43,12 @@ prompts:
 
     analysis-result: |
       STRICT OUTPUT RULES:
-      1) Return only the final result of the task execution as a structured textual analysis.
-      2) Do NOT include the plan, step numbers, tool names, or any meta-information.
-      3) Do NOT include markdown, code fences, or explanations.
-      4) Do NOT write any code (no Python, no JavaScript, no code snippets of any kind). Your output must be purely analytical text.
-      5) If the task asks you to write code — do NOT write code. Instead, describe what the code should do, which endpoints to use, what parameters to pass, and what the expected behavior is.
+      1) Do NOT execute the task. Do NOT produce results, conclusions, implementations, or any form of task output.
+      2) Your output is a DETAILED EXECUTION PLAN only — a comprehensive, self-contained document that will be used later to actually perform the task.
+      3) The plan MUST include ALL exact details needed for execution: endpoint paths, field names, data types, HTTP methods, base URLs, expected status codes, request/response schemas, auth requirements. No external context should be needed.
+      4) Do NOT write any code or code snippets of any kind. Steps must describe precisely WHAT to do and with WHAT exact values — not implement it.
+      5) Do NOT include markdown, code fences, or prose outside the required output format.
+      6) Output format MUST be: GOAL / CONTEXT / CONTRACTS / STEPS / EDGE CASES / EXPECTED RESULT
 
   actions:
     handle-task:
@@ -113,34 +114,42 @@ prompts:
 
         ${restartContext}
         ${chainContext}
-        Analyze the task and produce a short execution plan for another AI that will perform it.
-        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
-        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
-        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method names, field names, document IDs) MUST be explicitly included in the plan steps.
+        Your job is to GATHER ALL INFORMATION needed to complete this task. Do NOT create a plan yet — only collect data.
+
+        Use Swagger tools exhaustively for every API endpoint relevant to the task:
+        - getSwaggerDocumentInfo — retrieve the full document overview and server base URL
+        - getSwaggerMethod — retrieve the exact contract for every relevant endpoint (HTTP method, full path, parameters, request body, response schemas)
+        - getSwaggerSchema — resolve all $ref schemas to get exact field names, types, and constraints
+
+        Use API call tools to VERIFY the real behavior of each relevant endpoint:
+        - executeGet / executePost / executePut / executeDelete / executePatch — make live calls to confirm actual HTTP status codes, response structure, error responses, and any discrepancies from the declared contract
+        Thoroughness is the priority — gather as much verified data as possible.
+
+        CLARIFICATION: If the task description is too vague or missing critical information to know what to gather, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with gathered data — either ask a question OR gather data, never both.
+
         Answer on language of task_description.
 
-        CONTRACT ANALYSIS: For each API endpoint relevant to the task, identify and include its contract:
-        - INPUT CONTRACT: required/optional parameters, headers, request body schema (field names and types)
-        - OUTPUT CONTRACT: expected HTTP status codes and response body schema (field names and types)
-        Use getSwaggerMethod and getSwaggerSchema tools to retrieve exact contract details from the document.
-        If a server base URL is available in the document and the task requires verifying live behavior, use executeGet/executePost/executePut/executeDelete/executePatch tools to call the API and confirm the actual response status and structure matches the contract.
-        Include verified contract information explicitly in the plan steps so the executing AI has all details.
-
-        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
-        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
-        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
-
         Output format (strictly follow this structure):
-        GOAL: <one sentence — what needs to be done>
-        CONTRACTS:
-        - <METHOD> <path>: INPUT: <brief input contract> | OUTPUT: <status codes and response schema> | VERIFIED: <yes/no — whether live call was made>
-        STEPS:
-        1. <step> — tool: <tool name or "none">
-        2. <step> — tool: <tool name or "none">
-        ...
-        EXPECTED RESULT: <one sentence — what the result should look like>
+        TASK GOAL: <one sentence — what needs to be accomplished>
+        DOCUMENT OVERVIEW: <server base URL, relevant endpoint count, key areas>
+        ENDPOINT CONTRACTS:
+        - <METHOD> <path>:
+          INPUT: <all required/optional fields with types, headers, path/query params>
+          OUTPUT: <all status codes with full response schema — field names and types>
+          AUTH: <required auth headers or tokens, if any>
+          NOTES: <constraints, special behavior, required sequences>
+        LIVE VERIFICATION:
+        - <METHOD> <path>: STATUS: <actual HTTP status> | BODY: <actual response structure> | MATCH: <yes/no vs declared contract> | DISCREPANCY: <what differs, if any>
+        (write "LIVE VERIFICATION: none performed" if no live calls were made)
+        KEY OBSERVATIONS: <important findings, unexpected behaviors, auth requirements, ordering constraints>
 
-        ${outputRules.analysisPlan}
+        STRICT OUTPUT RULES:
+        1) Do NOT produce a plan or execution steps — only raw gathered data.
+        2) Do NOT include markdown, code fences, or prose outside the format above.
+        3) ENDPOINT CONTRACTS is REQUIRED. Include every endpoint relevant to the task.
+        4) Be thorough — missing data here will cause the plan to be incomplete.
       retry-analyze-task: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -149,7 +158,7 @@ prompts:
         <<<DOCUMENT_ID>>>
         ${documentId}
         <<<END_DOCUMENT_ID>>>
-        
+
         <<<SWAGGER_SUMMARY>>>
         ${swaggerSummary}
         <<<END_SWAGGER_SUMMARY>>>
@@ -166,22 +175,29 @@ prompts:
         ${availableTools}
         <<<END_AVAILABLE_TOOLS>>>
 
-        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
-        Produce a corrected short execution plan for another AI that will perform the task.
-        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
-        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
-        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method names, field names, document IDs) MUST be explicitly included in the plan steps.
+        Your previous information gathering was incomplete or incorrect. ANALYSIS_FEEDBACK explains what was missing or wrong.
+        Re-gather the information, fixing ALL issues mentioned in ANALYSIS_FEEDBACK.
+        Use Swagger tools and API call tools as needed — thoroughness is the priority.
         Answer on language of task_description.
 
         Output format (strictly follow this structure):
-        GOAL: <one sentence — what needs to be done>
-        STEPS:
-        1. <step> — tool: <tool name or "none">
-        2. <step> — tool: <tool name or "none">
-        ...
-        EXPECTED RESULT: <one sentence — what the result should look like>
+        TASK GOAL: <one sentence — what needs to be accomplished>
+        DOCUMENT OVERVIEW: <server base URL, relevant endpoint count, key areas>
+        ENDPOINT CONTRACTS:
+        - <METHOD> <path>:
+          INPUT: <all required/optional fields with types, headers, path/query params>
+          OUTPUT: <all status codes with full response schema — field names and types>
+          AUTH: <required auth headers or tokens, if any>
+          NOTES: <constraints, special behavior, required sequences>
+        LIVE VERIFICATION:
+        - <METHOD> <path>: STATUS: <actual HTTP status> | BODY: <actual response structure> | MATCH: <yes/no> | DISCREPANCY: <what differs, if any>
+        (write "LIVE VERIFICATION: none performed" if no live calls were made)
+        KEY OBSERVATIONS: <important findings, unexpected behaviors, constraints>
 
-        ${outputRules.analysisPlan}
+        STRICT OUTPUT RULES:
+        1) Do NOT produce a plan or execution steps — only raw gathered data.
+        2) Do NOT include markdown, code fences, or prose outside the format above.
+        3) ENDPOINT CONTRACTS is REQUIRED. Include every endpoint relevant to the task.
       review-task-analysis: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -216,22 +232,33 @@ prompts:
         ${documentId}
         <<<END_DOCUMENT_ID>>>
 
-        <<<EXECUTION_PLAN>>>
+        <<<GATHERED_CONTEXT>>>
         ${analysis}
-        <<<END_EXECUTION_PLAN>>>
+        <<<END_GATHERED_CONTEXT>>>
 
-        Execute the task strictly following the EXECUTION_PLAN step by step.
-        Use the tools specified in each step. Do not skip steps.
-        The result must directly solve the task described in TASK_DESCRIPTION.
+        You are compiling a DETAILED EXECUTION PLAN based on the information already gathered in GATHERED_CONTEXT.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code, scripts, or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
 
-        CONTRACT VERIFICATION: If the EXECUTION_PLAN contains a CONTRACTS section, include in your result:
-        - The input/output contract for each relevant API endpoint
-        - Whether the contract was verified by a live API call (use executeGet/executePost/executePut/executeDelete/executePatch if needed)
-        - The actual HTTP status and response structure observed (if verified)
-        - Any discrepancies between the declared contract and the live API behavior
+        Your job: structure the gathered context into a comprehensive, fully self-contained execution plan that another person or AI can follow step-by-step to complete this task WITHOUT access to any Swagger documents or additional context.
 
-        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
+        The plan MUST include all contracts discovered during information gathering: exact endpoint paths, base URL, request field names and types, response schemas, auth requirements, verified live behavior, and any discrepancies found.
+
         Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, auth requirements, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <server address> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no — from live verification in gathered context>
+        STEPS:
+        1. <precise step with exact values — endpoint path, all parameters, headers, expected response>
+        2. ...
+        EDGE CASES:
+        - <known error scenarios and how to handle them, based on gathered data>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
 
         ${outputRules.analysisResult}
       review-handle-analysis: |
@@ -272,20 +299,35 @@ prompts:
         ${documentId}
         <<<END_DOCUMENT_ID>>>
 
-        <<<EXECUTION_PLAN>>>
+        <<<GATHERED_CONTEXT>>>
         ${analysis}
-        <<<END_EXECUTION_PLAN>>>
+        <<<END_GATHERED_CONTEXT>>>
 
         <<<FEEDBACK>>>
         ${feedback}
         <<<END_FEEDBACK>>>
 
-        Your previous attempt to execute this task was rejected. FEEDBACK explains what went wrong.
-        Re-execute the task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
-        Fix the issues mentioned in FEEDBACK. Do not repeat the same mistakes.
-        The result must directly solve the task described in TASK_DESCRIPTION.
-        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
+        Your previous DETAILED PLAN was rejected. FEEDBACK explains what was missing or incorrect.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Produce a corrected DETAILED EXECUTION PLAN using the data in GATHERED_CONTEXT, fixing all issues in FEEDBACK.
+        The plan must be fully self-contained — all contracts, exact values, and details must be embedded.
         Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, auth requirements, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <server address> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        STEPS:
+        1. <precise step with exact values — endpoint path, all parameters, headers, expected response>
+        2. ...
+        EDGE CASES:
+        - <known error scenarios and how to handle them>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
 
         ${outputRules.analysisResult}
       analyze-task-general: |
@@ -299,34 +341,38 @@ prompts:
 
         ${restartContext}
         ${chainContext}
-        Analyze the task and produce a short execution plan for another AI that will perform it.
-        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
-        If no tool is needed for a step, write "none".
-        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
-        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Your job is to GATHER ALL INFORMATION needed to complete this task. Do NOT create a plan yet — only collect data.
+
+        No API document is attached — use general knowledge and any available tools.
+        If the task description contains a base URL or endpoint addresses, use API call tools to verify real behavior:
+        - executeGet / executePost / executePut / executeDelete / executePatch — make live calls to confirm actual HTTP status codes, response structure, error responses
+        Thoroughness is the priority — gather as much verified data as possible.
+
+        CLARIFICATION: If the task description is too vague or missing critical information to know what to gather, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with gathered data — either ask a question OR gather data, never both.
+
         Answer on language of task_description.
 
-        CONTRACT ANALYSIS: If the task involves API endpoints, identify the contract for each relevant endpoint:
-        - INPUT CONTRACT: required/optional parameters, headers, request body schema
-        - OUTPUT CONTRACT: expected HTTP status codes and response body schema
-        If the task description contains a base URL or endpoint addresses, use executeGet/executePost/executePut/executeDelete/executePatch tools to call the API and verify the actual response status and structure.
-        Include verified contract information explicitly in the plan steps.
-
-        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
-        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
-        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
-
         Output format (strictly follow this structure):
-        GOAL: <one sentence — what needs to be done>
-        CONTRACTS:
-        - <METHOD> <path>: INPUT: <brief input contract> | OUTPUT: <status codes and response schema> | VERIFIED: <yes/no — whether live call was made>
-        STEPS:
-        1. <step> — tool: <tool name or "none">
-        2. <step> — tool: <tool name or "none">
-        ...
-        EXPECTED RESULT: <one sentence — what the result should look like>
+        TASK GOAL: <one sentence — what needs to be accomplished>
+        ENDPOINT CONTRACTS:
+        - <METHOD> <path>:
+          BASE_URL: <server address from task description or discovered via tools>
+          INPUT: <all required/optional fields with types, headers, path/query params>
+          OUTPUT: <all status codes with full response schema — field names and types>
+          AUTH: <required auth headers or tokens, if any>
+          NOTES: <constraints, special behavior>
+        (write "ENDPOINT CONTRACTS: none" if no API endpoints are involved)
+        LIVE VERIFICATION:
+        - <METHOD> <path>: STATUS: <actual HTTP status> | BODY: <actual response structure> | MATCH: <yes/no> | DISCREPANCY: <what differs>
+        (write "LIVE VERIFICATION: none performed" if no live calls were made)
+        KEY OBSERVATIONS: <important findings, constraints, known requirements from task context>
 
-        ${outputRules.analysisPlan}
+        STRICT OUTPUT RULES:
+        1) Do NOT produce a plan or execution steps — only raw gathered data.
+        2) Do NOT include markdown, code fences, or prose outside the format above.
+        3) Be thorough — missing data here will cause the plan to be incomplete.
       retry-analyze-task-general: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
@@ -340,36 +386,62 @@ prompts:
         ${availableTools}
         <<<END_AVAILABLE_TOOLS>>>
 
-        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
-        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
-        Produce a corrected short execution plan for another AI that will perform the task.
-        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
-        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Your previous information gathering was incomplete or incorrect. ANALYSIS_FEEDBACK explains what was missing or wrong.
+        No API document is attached — use general knowledge and available tools.
+        Re-gather the information, fixing ALL issues mentioned in ANALYSIS_FEEDBACK.
         Answer on language of task_description.
 
         Output format (strictly follow this structure):
-        GOAL: <one sentence — what needs to be done>
-        STEPS:
-        1. <step> — tool: <tool name or "none">
-        2. <step> — tool: <tool name or "none">
-        ...
-        EXPECTED RESULT: <one sentence — what the result should look like>
+        TASK GOAL: <one sentence — what needs to be accomplished>
+        ENDPOINT CONTRACTS:
+        - <METHOD> <path>:
+          BASE_URL: <server address>
+          INPUT: <all required/optional fields with types, headers, path/query params>
+          OUTPUT: <all status codes with full response schema — field names and types>
+          AUTH: <required auth headers or tokens, if any>
+          NOTES: <constraints, special behavior>
+        (write "ENDPOINT CONTRACTS: none" if no API endpoints are involved)
+        LIVE VERIFICATION:
+        - <METHOD> <path>: STATUS: <actual HTTP status> | BODY: <actual response structure> | MATCH: <yes/no> | DISCREPANCY: <what differs>
+        (write "LIVE VERIFICATION: none performed" if no live calls were made)
+        KEY OBSERVATIONS: <important findings, constraints, known requirements from task context>
 
-        ${outputRules.analysisPlan}
+        STRICT OUTPUT RULES:
+        1) Do NOT produce a plan or execution steps — only raw gathered data.
+        2) Do NOT include markdown, code fences, or prose outside the format above.
+        3) Be thorough — missing data here will cause the plan to be incomplete.
       handle-task-analysis-general: |
         <<<TASK_DESCRIPTION>>>
         ${taskDescription}
         <<<END_TASK_DESCRIPTION>>>
 
-        <<<EXECUTION_PLAN>>>
+        <<<GATHERED_CONTEXT>>>
         ${analysis}
-        <<<END_EXECUTION_PLAN>>>
+        <<<END_GATHERED_CONTEXT>>>
 
-        Execute the task strictly following the EXECUTION_PLAN step by step.
-        No API document is attached — use only general knowledge and available tools.
-        Do not skip steps. The result must directly solve the task described in TASK_DESCRIPTION.
-        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
+        You are compiling a DETAILED EXECUTION PLAN based on the information already gathered in GATHERED_CONTEXT.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code, scripts, or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Your job: structure the gathered context into a comprehensive, fully self-contained execution plan that another person or AI can follow step-by-step to complete this task WITHOUT any additional context.
+
+        The plan MUST include all contracts and verified behaviors discovered during information gathering: exact endpoint paths, base URL, request field names and types, response schemas, auth requirements, and any discrepancies found.
         Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, auth requirements, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <address> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        (write "CONTRACTS: none" if no API endpoints are involved)
+        STEPS:
+        1. <precise step with exact values — endpoint path, all parameters, headers, expected response>
+        2. ...
+        EDGE CASES:
+        - <known error scenarios and how to handle them, based on gathered data>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
 
         ${outputRules.analysisResult}
       retry-handle-task-analysis-general: |
@@ -377,21 +449,36 @@ prompts:
         ${taskDescription}
         <<<END_TASK_DESCRIPTION>>>
 
-        <<<EXECUTION_PLAN>>>
+        <<<GATHERED_CONTEXT>>>
         ${analysis}
-        <<<END_EXECUTION_PLAN>>>
+        <<<END_GATHERED_CONTEXT>>>
 
         <<<FEEDBACK>>>
         ${feedback}
         <<<END_FEEDBACK>>>
 
-        Your previous attempt to execute this task was rejected. FEEDBACK explains what went wrong.
-        No API document is attached — use only general knowledge and available tools.
-        Re-execute the task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
-        Fix the issues mentioned in FEEDBACK. Do not repeat the same mistakes.
-        The result must directly solve the task described in TASK_DESCRIPTION.
-        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
+        Your previous DETAILED PLAN was rejected. FEEDBACK explains what was missing or incorrect.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Produce a corrected DETAILED EXECUTION PLAN using the data in GATHERED_CONTEXT, fixing all issues in FEEDBACK.
+        The plan must be fully self-contained — all contracts, exact values, and details must be embedded.
         Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <address if known> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        (write "CONTRACTS: none" if no API endpoints are involved)
+        STEPS:
+        1. <precise step with exact values>
+        2. ...
+        EDGE CASES:
+        - <known edge cases and how to handle them>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
 
         ${outputRules.analysisResult}
       handle-task-analysis-after-error: |
@@ -403,20 +490,35 @@ prompts:
         ${documentId}
         <<<END_DOCUMENT_ID>>>
 
-        <<<EXECUTION_PLAN>>>
+        <<<GATHERED_CONTEXT>>>
         ${analysis}
-        <<<END_EXECUTION_PLAN>>>
+        <<<END_GATHERED_CONTEXT>>>
 
         <<<PREVIOUS_ERROR>>>
         ${errorMessage}
         <<<END_PREVIOUS_ERROR>>>
 
-        Your previous attempt to execute this task failed with the error in PREVIOUS_ERROR.
-        Re-execute the task strictly following the EXECUTION_PLAN step by step.
-        You MUST avoid the error described in PREVIOUS_ERROR.
-        The result must directly solve the task described in TASK_DESCRIPTION.
-        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
+        Your previous attempt to compile a DETAILED PLAN failed with the error in PREVIOUS_ERROR.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Produce a corrected DETAILED EXECUTION PLAN using the data in GATHERED_CONTEXT, avoiding the error in PREVIOUS_ERROR.
+        The plan must be fully self-contained — all contracts, exact values, and details must be embedded.
         Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, auth requirements, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <server address> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        STEPS:
+        1. <precise step with exact values — endpoint path, all parameters, headers, expected response>
+        2. ...
+        EDGE CASES:
+        - <known error scenarios and how to handle them>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
 
         ${outputRules.analysisResult}
       handle-task-analysis-after-error-general: |
@@ -424,21 +526,36 @@ prompts:
         ${taskDescription}
         <<<END_TASK_DESCRIPTION>>>
 
-        <<<EXECUTION_PLAN>>>
+        <<<GATHERED_CONTEXT>>>
         ${analysis}
-        <<<END_EXECUTION_PLAN>>>
+        <<<END_GATHERED_CONTEXT>>>
 
         <<<PREVIOUS_ERROR>>>
         ${errorMessage}
         <<<END_PREVIOUS_ERROR>>>
 
-        Your previous attempt to execute this task failed with the error in PREVIOUS_ERROR.
-        Re-execute the task strictly following the EXECUTION_PLAN step by step.
-        You MUST avoid the error described in PREVIOUS_ERROR.
-        No API document is attached — use only general knowledge and available tools.
-        The result must directly solve the task described in TASK_DESCRIPTION.
-        CRITICAL: Your output must be a textual analysis ONLY. Do NOT write any code, code snippets, or code blocks. Do NOT use <<<CODE_START>>> markers. Describe findings, conclusions, and recommendations in plain text.
+        Your previous attempt to compile a DETAILED PLAN failed with the error in PREVIOUS_ERROR.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Produce a corrected DETAILED EXECUTION PLAN using the data in GATHERED_CONTEXT, avoiding the error in PREVIOUS_ERROR.
+        The plan must be fully self-contained — all contracts, exact values, and details must be embedded.
         Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <address if known> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        (write "CONTRACTS: none" if no API endpoints are involved)
+        STEPS:
+        1. <precise step with exact values>
+        2. ...
+        EDGE CASES:
+        - <known edge cases and how to handle them>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
 
         ${outputRules.analysisResult}
       task-chat: |        
