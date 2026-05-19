@@ -6,7 +6,1273 @@ prompts:
     programmer: |
       SYSTEM: You are the best expert developer and code architect.
 
+  outputs:
+    text: |
+      STRICT OUTPUT RULES:
+      1) Do NOT include markdown, code fences, comments, or explanations.
+      2) The answer MUST be a plain string.
+
+    yes-no: |
+      STRICT OUTPUT RULES:
+      1) Do NOT include markdown, code fences, comments, or explanations.
+      2) The answer MUST be a single word: "yes" or "no".
+
+    analysis-plan: |
+      STRICT OUTPUT RULES:
+      1) Each step must be specific and actionable.
+      2) Do NOT include markdown, code fences, comments, or prose outside the format above.
+      3) The answer MUST follow the output format exactly (GOAL, CONTRACTS, STEPS, EXPECTED RESULT).
+      4) Do NOT include any code or code snippets in the plan. Steps must describe WHAT to do, not HOW to implement it in code.
+      5) The CONTRACTS section is REQUIRED. If no API endpoints are involved, write "CONTRACTS: none".
+
+    code: |
+      STRICT OUTPUT RULES:
+      1) Return ONLY the code. Do NOT include the plan, step numbers, tool names, or any meta-information.
+      2) The code MUST be wrapped between <<<CODE_START language=python>>> and <<<CODE_END>>>.
+      3) Follow PEP8; use functions, docstrings and SOLID principles.
+      4) For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
+
+    test: |
+      STRICT OUTPUT RULES:
+      1) Return ONLY the test code. Do NOT include the plan, step numbers, tool names, or any meta-information.
+      2) The code MUST be wrapped between <<<CODE_START language=python>>> and <<<CODE_END>>>.
+      3) Follow PEP8; use pytest as the test framework.
+      4) Each test function must have a descriptive name starting with "test_".
+      5) Include assertions that verify HTTP status codes and response structure.
+      6) For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
+
+    analysis-result: |
+      STRICT OUTPUT RULES:
+      1) Do NOT execute the task. Do NOT produce results, conclusions, implementations, or any form of task output.
+      2) Your output is a DETAILED EXECUTION PLAN only — a comprehensive, self-contained document that will be used later to actually perform the task.
+      3) The plan MUST include ALL exact details needed for execution: endpoint paths, field names, data types, HTTP methods, base URLs, expected status codes, request/response schemas, auth requirements. No external context should be needed.
+      4) Do NOT write any code or code snippets of any kind. Steps must describe precisely WHAT to do and with WHAT exact values — not implement it.
+      5) Do NOT include markdown, code fences, or prose outside the required output format.
+      6) Output format MUST be: GOAL / CONTEXT / CONTRACTS / STEPS / EDGE CASES / EXPECTED RESULT
+
   actions:
+    handle-task:
+      review-task-result: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<TASK_RESULT>>>
+        ${taskResult}
+        <<<END_TASK_RESULT>>>
+
+        <<<TASK_STATUS>>>
+        ${taskStatus}
+        <<<END_TASK_STATUS>>>
+
+        Review the task result and the task status.
+        If the task is not completed successfully, explain what went wrong and what can be done to fix it. 
+        If the task is completed successfully, then answer so.
+        Answer on language of task_description.
+
+        ${outputRules.text}
+      review-previous-result: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<PREVIOUS_RESULT>>>
+        ${previousResult}
+        <<<END_PREVIOUS_RESULT>>>
+
+        <<<USER_FEEDBACK>>>
+        ${userMessage}
+        <<<END_USER_FEEDBACK>>>
+
+        This task was previously completed, but the user was not satisfied with the result and restarted it.
+        Analyze the PREVIOUS_RESULT and the USER_FEEDBACK carefully.
+        Produce a detailed list of what must be fixed or improved in the next attempt.
+        Be specific: reference exact parts of the previous result that need changes.
+        Answer on language of task_description.
+
+        ${outputRules.text}
+      analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+        
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        ${chainContext}
+        Your job is to GATHER ALL INFORMATION needed to complete this task. Do NOT create a plan yet — only collect data.
+
+        Use Swagger tools exhaustively for every API endpoint relevant to the task:
+        - getSwaggerDocumentInfo — retrieve the full document overview and server base URL
+        - getSwaggerMethod — retrieve the exact contract for every relevant endpoint (HTTP method, full path, parameters, request body, response schemas)
+        - getSwaggerSchema — resolve all $ref schemas to get exact field names, types, and constraints
+
+        Use API call tools to VERIFY the real behavior of each relevant endpoint:
+        - executeGet / executePost / executePut / executeDelete / executePatch — make live calls to confirm actual HTTP status codes, response structure, error responses, and any discrepancies from the declared contract
+        Thoroughness is the priority — gather as much verified data as possible.
+
+        CLARIFICATION: If the task description is too vague or missing critical information to know what to gather, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with gathered data — either ask a question OR gather data, never both.
+
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        TASK GOAL: <one sentence — what needs to be accomplished>
+        DOCUMENT OVERVIEW: <server base URL, relevant endpoint count, key areas>
+        ENDPOINT CONTRACTS:
+        - <METHOD> <path>:
+          INPUT: <all required/optional fields with types, headers, path/query params>
+          OUTPUT: <all status codes with full response schema — field names and types>
+          AUTH: <required auth headers or tokens, if any>
+          NOTES: <constraints, special behavior, required sequences>
+        LIVE VERIFICATION:
+        - <METHOD> <path>: STATUS: <actual HTTP status> | BODY: <actual response structure> | MATCH: <yes/no vs declared contract> | DISCREPANCY: <what differs, if any>
+        (write "LIVE VERIFICATION: none performed" if no live calls were made)
+        KEY OBSERVATIONS: <important findings, unexpected behaviors, auth requirements, ordering constraints>
+
+        STRICT OUTPUT RULES:
+        1) Do NOT produce a plan or execution steps — only raw gathered data.
+        2) Do NOT include markdown, code fences, or prose outside the format above.
+        3) ENDPOINT CONTRACTS is REQUIRED. Include every endpoint relevant to the task.
+        4) Be thorough — missing data here will cause the plan to be incomplete.
+      retry-analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous information gathering was incomplete or incorrect. ANALYSIS_FEEDBACK explains what was missing or wrong.
+        Re-gather the information, fixing ALL issues mentioned in ANALYSIS_FEEDBACK.
+        Use Swagger tools and API call tools as needed — thoroughness is the priority.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        TASK GOAL: <one sentence — what needs to be accomplished>
+        DOCUMENT OVERVIEW: <server base URL, relevant endpoint count, key areas>
+        ENDPOINT CONTRACTS:
+        - <METHOD> <path>:
+          INPUT: <all required/optional fields with types, headers, path/query params>
+          OUTPUT: <all status codes with full response schema — field names and types>
+          AUTH: <required auth headers or tokens, if any>
+          NOTES: <constraints, special behavior, required sequences>
+        LIVE VERIFICATION:
+        - <METHOD> <path>: STATUS: <actual HTTP status> | BODY: <actual response structure> | MATCH: <yes/no> | DISCREPANCY: <what differs, if any>
+        (write "LIVE VERIFICATION: none performed" if no live calls were made)
+        KEY OBSERVATIONS: <important findings, unexpected behaviors, constraints>
+
+        STRICT OUTPUT RULES:
+        1) Do NOT produce a plan or execution steps — only raw gathered data.
+        2) Do NOT include markdown, code fences, or prose outside the format above.
+        3) ENDPOINT CONTRACTS is REQUIRED. Include every endpoint relevant to the task.
+      review-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+        
+        <<<ANALYSIS>>>
+        ${analysis}
+        <<<END_ANALYSIS>>>
+
+        Review the provided analysis (execution plan) for the task described in task_description.  
+        If you find any mistakes, inaccuracies, or missing information, explain why.  
+        If you think that something important is missing, specify what information is needed to complete the analysis.
+        If the analysis is already perfect, then answer so.
+
+        ${outputRules.text}
+      review-task-analysis-solution: |
+        <<<REVIEW_FEEDBACK>>>
+        ${review}
+        <<<REVIEW_FEEDBACK>>>
+
+        Based on REVIEW_FEEDBACK, decide if the analysis needs to be redone.
+        If the analysis was completed successfully — answer "yes".
+        If the analysis failed, is incomplete, or needs to be redone — answer "no".
+
+        ${outputRules.yesNo}
+      handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<GATHERED_CONTEXT>>>
+        ${analysis}
+        <<<END_GATHERED_CONTEXT>>>
+
+        You are compiling a DETAILED EXECUTION PLAN based on the information already gathered in GATHERED_CONTEXT.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code, scripts, or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Your job: structure the gathered context into a comprehensive, fully self-contained execution plan that another person or AI can follow step-by-step to complete this task WITHOUT access to any Swagger documents or additional context.
+
+        The plan MUST include all contracts discovered during information gathering: exact endpoint paths, base URL, request field names and types, response schemas, auth requirements, verified live behavior, and any discrepancies found.
+
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, auth requirements, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <server address> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no — from live verification in gathered context>
+        STEPS:
+        1. <precise step with exact values — endpoint path, all parameters, headers, expected response>
+        2. ...
+        EDGE CASES:
+        - <known error scenarios and how to handle them, based on gathered data>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
+
+        ${outputRules.analysisResult}
+      review-handle-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<TASK_RESULT>>>
+        ${taskResult}
+        <<<END_TASK_RESULT>>>
+
+        <<<EXPECTED_OUTPUT_RULES>>>
+        ${expectedOutputRules}
+        <<<END_EXPECTED_OUTPUT_RULES>>>
+
+        Evaluate whether the task described in TASK_DESCRIPTION was completed successfully based on TASK_RESULT.
+        Be strict: if the result is incomplete, off-topic, or contains errors — say so explicitly.
+        Also verify that TASK_RESULT follows the EXPECTED_OUTPUT_RULES. If the result violates the output format (e.g. missing <<<CODE_START>>> / <<<CODE_END>>> markers, contains markdown fences when forbidden, etc.) — explicitly mention this violation in your feedback.
+        Answer on language of task_description.
+
+        ${outputRules.text}
+      review-handle-analysis-solution: |
+        <<<REVIEW_FEEDBACK>>>
+        ${feedback}
+        <<<END_REVIEW_FEEDBACK>>>
+
+        Based on REVIEW_FEEDBACK, decide if the task needs to be redone.
+        If the task was completed successfully — answer "yes".
+        If the task failed, is incomplete, or needs to be redone — answer "no".
+
+        ${outputRules.yesNo}
+      retry-handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<GATHERED_CONTEXT>>>
+        ${analysis}
+        <<<END_GATHERED_CONTEXT>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous DETAILED PLAN was rejected. FEEDBACK explains what was missing or incorrect.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Produce a corrected DETAILED EXECUTION PLAN using the data in GATHERED_CONTEXT, fixing all issues in FEEDBACK.
+        The plan must be fully self-contained — all contracts, exact values, and details must be embedded.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, auth requirements, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <server address> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        STEPS:
+        1. <precise step with exact values — endpoint path, all parameters, headers, expected response>
+        2. ...
+        EDGE CASES:
+        - <known error scenarios and how to handle them>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
+
+        ${outputRules.analysisResult}
+      analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        ${chainContext}
+        Your job is to GATHER ALL INFORMATION needed to complete this task. Do NOT create a plan yet — only collect data.
+
+        No API document is attached — use general knowledge and any available tools.
+        If the task description contains a base URL or endpoint addresses, use API call tools to verify real behavior:
+        - executeGet / executePost / executePut / executeDelete / executePatch — make live calls to confirm actual HTTP status codes, response structure, error responses
+        Thoroughness is the priority — gather as much verified data as possible.
+
+        CLARIFICATION: If the task description is too vague or missing critical information to know what to gather, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with gathered data — either ask a question OR gather data, never both.
+
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        TASK GOAL: <one sentence — what needs to be accomplished>
+        ENDPOINT CONTRACTS:
+        - <METHOD> <path>:
+          BASE_URL: <server address from task description or discovered via tools>
+          INPUT: <all required/optional fields with types, headers, path/query params>
+          OUTPUT: <all status codes with full response schema — field names and types>
+          AUTH: <required auth headers or tokens, if any>
+          NOTES: <constraints, special behavior>
+        (write "ENDPOINT CONTRACTS: none" if no API endpoints are involved)
+        LIVE VERIFICATION:
+        - <METHOD> <path>: STATUS: <actual HTTP status> | BODY: <actual response structure> | MATCH: <yes/no> | DISCREPANCY: <what differs>
+        (write "LIVE VERIFICATION: none performed" if no live calls were made)
+        KEY OBSERVATIONS: <important findings, constraints, known requirements from task context>
+
+        STRICT OUTPUT RULES:
+        1) Do NOT produce a plan or execution steps — only raw gathered data.
+        2) Do NOT include markdown, code fences, or prose outside the format above.
+        3) Be thorough — missing data here will cause the plan to be incomplete.
+      retry-analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous information gathering was incomplete or incorrect. ANALYSIS_FEEDBACK explains what was missing or wrong.
+        No API document is attached — use general knowledge and available tools.
+        Re-gather the information, fixing ALL issues mentioned in ANALYSIS_FEEDBACK.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        TASK GOAL: <one sentence — what needs to be accomplished>
+        ENDPOINT CONTRACTS:
+        - <METHOD> <path>:
+          BASE_URL: <server address>
+          INPUT: <all required/optional fields with types, headers, path/query params>
+          OUTPUT: <all status codes with full response schema — field names and types>
+          AUTH: <required auth headers or tokens, if any>
+          NOTES: <constraints, special behavior>
+        (write "ENDPOINT CONTRACTS: none" if no API endpoints are involved)
+        LIVE VERIFICATION:
+        - <METHOD> <path>: STATUS: <actual HTTP status> | BODY: <actual response structure> | MATCH: <yes/no> | DISCREPANCY: <what differs>
+        (write "LIVE VERIFICATION: none performed" if no live calls were made)
+        KEY OBSERVATIONS: <important findings, constraints, known requirements from task context>
+
+        STRICT OUTPUT RULES:
+        1) Do NOT produce a plan or execution steps — only raw gathered data.
+        2) Do NOT include markdown, code fences, or prose outside the format above.
+        3) Be thorough — missing data here will cause the plan to be incomplete.
+      handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<GATHERED_CONTEXT>>>
+        ${analysis}
+        <<<END_GATHERED_CONTEXT>>>
+
+        You are compiling a DETAILED EXECUTION PLAN based on the information already gathered in GATHERED_CONTEXT.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code, scripts, or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Your job: structure the gathered context into a comprehensive, fully self-contained execution plan that another person or AI can follow step-by-step to complete this task WITHOUT any additional context.
+
+        The plan MUST include all contracts and verified behaviors discovered during information gathering: exact endpoint paths, base URL, request field names and types, response schemas, auth requirements, and any discrepancies found.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, auth requirements, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <address> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        (write "CONTRACTS: none" if no API endpoints are involved)
+        STEPS:
+        1. <precise step with exact values — endpoint path, all parameters, headers, expected response>
+        2. ...
+        EDGE CASES:
+        - <known error scenarios and how to handle them, based on gathered data>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
+
+        ${outputRules.analysisResult}
+      retry-handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<GATHERED_CONTEXT>>>
+        ${analysis}
+        <<<END_GATHERED_CONTEXT>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous DETAILED PLAN was rejected. FEEDBACK explains what was missing or incorrect.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Produce a corrected DETAILED EXECUTION PLAN using the data in GATHERED_CONTEXT, fixing all issues in FEEDBACK.
+        The plan must be fully self-contained — all contracts, exact values, and details must be embedded.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <address if known> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        (write "CONTRACTS: none" if no API endpoints are involved)
+        STEPS:
+        1. <precise step with exact values>
+        2. ...
+        EDGE CASES:
+        - <known edge cases and how to handle them>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
+
+        ${outputRules.analysisResult}
+      handle-task-analysis-after-error: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<GATHERED_CONTEXT>>>
+        ${analysis}
+        <<<END_GATHERED_CONTEXT>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to compile a DETAILED PLAN failed with the error in PREVIOUS_ERROR.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Produce a corrected DETAILED EXECUTION PLAN using the data in GATHERED_CONTEXT, avoiding the error in PREVIOUS_ERROR.
+        The plan must be fully self-contained — all contracts, exact values, and details must be embedded.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, auth requirements, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <server address> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        STEPS:
+        1. <precise step with exact values — endpoint path, all parameters, headers, expected response>
+        2. ...
+        EDGE CASES:
+        - <known error scenarios and how to handle them>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
+
+        ${outputRules.analysisResult}
+      handle-task-analysis-after-error-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<GATHERED_CONTEXT>>>
+        ${analysis}
+        <<<END_GATHERED_CONTEXT>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to compile a DETAILED PLAN failed with the error in PREVIOUS_ERROR.
+        DO NOT execute the task. DO NOT produce results, conclusions, or any task output.
+        DO NOT write any code or code snippets under any circumstances.
+        DO NOT make additional tool calls — all necessary data is already in GATHERED_CONTEXT.
+
+        Produce a corrected DETAILED EXECUTION PLAN using the data in GATHERED_CONTEXT, avoiding the error in PREVIOUS_ERROR.
+        The plan must be fully self-contained — all contracts, exact values, and details must be embedded.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what needs to be accomplished>
+        CONTEXT:
+        - <all essential facts, constraints, and prerequisites the executor must know>
+        CONTRACTS:
+        - <METHOD> <path>: BASE_URL: <address if known> | INPUT: <exact field names and types> | OUTPUT: <status codes and exact response schema> | VERIFIED: <yes/no>
+        (write "CONTRACTS: none" if no API endpoints are involved)
+        STEPS:
+        1. <precise step with exact values>
+        2. ...
+        EDGE CASES:
+        - <known edge cases and how to handle them>
+        EXPECTED RESULT: <exact description of what the completed task output should look like>
+
+        ${outputRules.analysisResult}
+      task-chat: |        
+        <<<TASK_CONTEXT>>>
+        ID: ${taskId}
+        Type: ${taskType}
+        Status: ${taskStatus}
+        Status description: ${taskStatusDescription}
+        Description: ${taskDescription}
+        Result: ${taskResult}
+        Current stage: ${taskCurrentStage}
+        <<<END_TASK_CONTEXT>>>
+
+        <<<USER_QUESTION>>>
+        ${userQuestion}
+        <<<END_USER_QUESTION>>>
+
+        You are an assistant helping the user understand the task above.
+        Answer the user's question based on the task context provided.
+        If the task has a result, you may refer to it in your answer.
+        Answer on language of user_question.
+
+        ${outputRules.text}
+    code-task:
+      analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        ${chainContext}
+        Analyze the coding task and produce a short execution plan for another AI that will implement it.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs) MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
+
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what code needs to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final code should do>
+
+        ${outputRules.analysisPlan}
+      retry-analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        Produce a corrected short execution plan for another AI that will implement the coding task.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs) MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        For API base URL, use the server address from the Swagger document (SERVERS block) unless the user explicitly specifies a different address.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what code needs to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final code should do>
+
+        ${outputRules.analysisPlan}
+      handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Implement the coding task strictly following the EXECUTION_PLAN step by step.
+        Use the tools specified in each step. Do not skip steps.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      retry-handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous code was rejected. FEEDBACK explains what went wrong.
+        Re-implement the coding task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix all issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      handle-task-analysis-after-error: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to implement this task failed with the error in PREVIOUS_ERROR.
+        Re-implement the coding task strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        ${chainContext}
+        Analyze the coding task and produce a short execution plan for another AI that will implement it.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what code needs to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final code should do>
+
+        ${outputRules.analysisPlan}
+      retry-analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        Produce a corrected short execution plan for another AI that will implement the coding task.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what code needs to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final code should do>
+
+        ${outputRules.analysisPlan}
+      handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Implement the coding task strictly following the EXECUTION_PLAN step by step.
+        No API document is attached — use only general knowledge and available tools.
+        Do not skip steps. The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      retry-handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous code was rejected. FEEDBACK explains what went wrong.
+        No API document is attached — use only general knowledge and available tools.
+        Re-implement the coding task strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix all issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+      handle-task-analysis-after-error-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to implement this task failed with the error in PREVIOUS_ERROR.
+        Re-implement the coding task strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        No API document is attached — use only general knowledge and available tools.
+        The result must be working, production-ready code that solves the task described in TASK_DESCRIPTION.
+
+        ${outputRules.code}
+    test-task:
+      analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        ${chainContext}
+        Analyze the API testing task and produce a short execution plan for another AI that will write API tests.
+        If PREVIOUS_STEP_RESULT is present above, it contains the source code that was generated in the previous step. In that case, the tests MUST be written specifically for that code — import and call its functions/classes directly, do not duplicate the implementation.
+        If no PREVIOUS_STEP_RESULT is present, the tests must verify that the API endpoints work correctly: check HTTP status codes, response structure, required fields, error handling.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs, expected status codes) MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what tests need to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final test suite should verify>
+
+        ${outputRules.analysisPlan}
+      retry-analyze-task: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<SWAGGER_SUMMARY>>>
+        ${swaggerSummary}
+        <<<END_SWAGGER_SUMMARY>>>
+
+        <<<SWAGGER_METHODS>>>
+        ${swaggerMethodSummary}
+        <<<END_SWAGGER_METHODS>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        Produce a corrected short execution plan for another AI that will write API tests.
+        The tests must verify that the API endpoints work correctly: check HTTP status codes, response structure, required fields, error handling.
+        Use only tools listed in AVAILABLE_TOOLS. If no tool is needed for a step, write "none".
+        IMPORTANT: The AI that will execute this plan has NO access to the document context. All necessary details (paths, method signatures, request/response schemas, document IDs, expected status codes) MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what tests need to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final test suite should verify>
+
+        ${outputRules.analysisPlan}
+      handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Write tests strictly following the EXECUTION_PLAN step by step.
+        Use the tools specified in each step. Do not skip steps.
+        The tests must use Python pytest.
+        If the EXECUTION_PLAN mentions testing specific source code (from a previous step), use the requests library to call the API and also import/call functions from that code directly.
+        Otherwise, the tests must send real HTTP requests to the API and assert on:
+        - HTTP status code
+        - Response body structure (required fields exist)
+        - Error responses for invalid input
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      retry-handle-task-analysis: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous tests were rejected. FEEDBACK explains what went wrong.
+        Re-write the API tests strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix all issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The tests must use Python pytest and the requests library.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      handle-task-analysis-after-error: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DOCUMENT_ID>>>
+        ${documentId}
+        <<<END_DOCUMENT_ID>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to write tests failed with the error in PREVIOUS_ERROR.
+        Re-write the API tests strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        The tests must use Python pytest and the requests library.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        ${restartContext}
+        ${chainContext}
+        Analyze the API testing task and produce a short execution plan for another AI that will write API tests.
+        If PREVIOUS_STEP_RESULT is present above, it contains the source code that was generated in the previous step. In that case, the tests MUST be written specifically for that code — import and call its functions/classes directly, do not duplicate the implementation.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        If no tool is needed for a step, write "none".
+        The plan must be concise and actionable — no explanations, no reasoning, no fluff.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        CLARIFICATION: If the task description is too vague, ambiguous, or missing critical information to produce a meaningful plan, you MUST ask the user for clarification instead of guessing. To do this, respond ONLY with:
+        <<<NEED_USER_INPUT>>>your specific question to the user (on language of task_description)<<<END_NEED_USER_INPUT>>>
+        Do NOT combine this with a plan — either ask a question OR produce a plan, never both.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what tests need to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final test suite should verify>
+
+        ${outputRules.analysisPlan}
+      retry-analyze-task-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ANALYSIS_FEEDBACK>>>
+        ${feedback}
+        <<<END_ANALYSIS_FEEDBACK>>>
+
+        <<<AVAILABLE_TOOLS>>>
+        ${availableTools}
+        <<<END_AVAILABLE_TOOLS>>>
+
+        Your previous execution plan was rejected. ANALYSIS_FEEDBACK explains what was wrong.
+        No API document is attached — use only general knowledge and tools listed in AVAILABLE_TOOLS.
+        Produce a corrected short execution plan for another AI that will write API tests.
+        IMPORTANT: The AI that will execute this plan has NO access to any external context. All necessary details MUST be explicitly included in the plan steps.
+        Answer on language of task_description.
+
+        Output format (strictly follow this structure):
+        GOAL: <one sentence — what tests need to be written>
+        STEPS:
+        1. <step> — tool: <tool name or "none">
+        2. <step> — tool: <tool name or "none">
+        ...
+        EXPECTED RESULT: <one sentence — what the final test suite should verify>
+
+        ${outputRules.analysisPlan}
+      handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        Write tests strictly following the EXECUTION_PLAN step by step.
+        No API document is attached — use only general knowledge and available tools.
+        Do not skip steps. The tests must use Python pytest.
+        If the EXECUTION_PLAN mentions testing specific source code (from a previous step), import and call its functions/classes directly.
+        Otherwise, use the requests library to send real HTTP requests.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      retry-handle-task-analysis-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<FEEDBACK>>>
+        ${feedback}
+        <<<END_FEEDBACK>>>
+
+        Your previous tests were rejected. FEEDBACK explains what went wrong.
+        No API document is attached — use only general knowledge and available tools.
+        Re-write the API tests strictly following the EXECUTION_PLAN, taking FEEDBACK into account.
+        Fix all issues mentioned in FEEDBACK. Do not repeat the same mistakes.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+      handle-task-analysis-after-error-general: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<EXECUTION_PLAN>>>
+        ${analysis}
+        <<<END_EXECUTION_PLAN>>>
+
+        <<<PREVIOUS_ERROR>>>
+        ${errorMessage}
+        <<<END_PREVIOUS_ERROR>>>
+
+        Your previous attempt to write tests failed with the error in PREVIOUS_ERROR.
+        Re-write the API tests strictly following the EXECUTION_PLAN step by step.
+        You MUST avoid the error described in PREVIOUS_ERROR.
+        No API document is attached — use only general knowledge and available tools.
+        The result must be a complete, runnable test file.
+
+        ${outputRules.test}
+    code-execution:
+      disapproved-rewrite-code: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DISAPPROVED_CODE>>>
+        ${code}
+        <<<END_DISAPPROVED_CODE>>>
+
+        <<<USER_FEEDBACK>>>
+        ${userFeedback}
+        <<<END_USER_FEEDBACK>>>
+
+        The user reviewed the code in DISAPPROVED_CODE and rejected it.
+        USER_FEEDBACK contains the user's comments explaining what is wrong or needs to change.
+
+        Rewrite the code to address ALL issues mentioned in USER_FEEDBACK.
+        The rewritten code must:
+        - Fix everything the user pointed out
+        - Still solve the original task in TASK_DESCRIPTION
+        - Be a complete, runnable file (not a diff or partial fix)
+
+        ${outputRules.code}
+      disapproved-rewrite-test: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<DISAPPROVED_CODE>>>
+        ${code}
+        <<<END_DISAPPROVED_CODE>>>
+
+        <<<USER_FEEDBACK>>>
+        ${userFeedback}
+        <<<END_USER_FEEDBACK>>>
+
+        The user reviewed the tests in DISAPPROVED_CODE and rejected them.
+        USER_FEEDBACK contains the user's comments explaining what is wrong or needs to change.
+
+        Rewrite the tests to address ALL issues mentioned in USER_FEEDBACK.
+        The rewritten tests must:
+        - Fix everything the user pointed out
+        - Still verify the original task requirements in TASK_DESCRIPTION
+        - Be a complete, runnable test file (not a diff or partial fix)
+        - Use Python pytest and the requests library
+
+        ${outputRules.test}
+      approve-description: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<GENERATED_CODE_SUMMARY>>>
+        ${codeSummary}
+        <<<END_GENERATED_CODE_SUMMARY>>>
+
+        The AI has generated code for the task above. The user needs to approve its execution.
+        Write a short summary (2-3 sentences, max) for the user explaining:
+        - What this code does
+        - What will happen when it runs (e.g. API calls, file operations, tests)
+        Answer on language of task_description.
+
+        ${outputRules.text}
+      review-code-execution: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<GENERATED_CODE>>>
+        ${code}
+        <<<END_GENERATED_CODE>>>
+
+        <<<EXECUTION_RESULT>>>
+        ${executionResult}
+        <<<END_EXECUTION_RESULT>>>
+
+        The code in GENERATED_CODE was written to solve the task in TASK_DESCRIPTION.
+        It was executed and the output is in EXECUTION_RESULT.
+
+        Evaluate whether the execution was successful:
+        - Did the code run without errors?
+        - Does the output match what the task expects?
+        - If there are test failures, list which tests failed and why.
+
+        Answer on language of task_description.
+
+        ${outputRules.text}
+      review-code-execution-solution: |
+        <<<REVIEW_FEEDBACK>>>
+        ${feedback}
+        <<<END_REVIEW_FEEDBACK>>>
+
+        Based on REVIEW_FEEDBACK, decide if the code execution was successful.
+        If the code executed successfully and produced correct results — answer "yes".
+        If the code failed, produced wrong results, or needs to be rewritten — answer "no".
+
+        ${outputRules.yesNo}
+      rewrite-code: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ORIGINAL_CODE>>>
+        ${code}
+        <<<END_ORIGINAL_CODE>>>
+
+        <<<EXECUTION_RESULT>>>
+        ${executionResult}
+        <<<END_EXECUTION_RESULT>>>
+
+        <<<REVIEW_FEEDBACK>>>
+        ${feedback}
+        <<<END_REVIEW_FEEDBACK>>>
+
+        The code in ORIGINAL_CODE was written to solve the task in TASK_DESCRIPTION.
+        It was executed and produced the result in EXECUTION_RESULT.
+        The reviewer provided feedback in REVIEW_FEEDBACK.
+
+        Rewrite the code to fix all issues identified in the feedback and execution result.
+        The rewritten code must:
+        - Fix all errors and failures
+        - Still solve the original task
+        - Be a complete, runnable file (not a diff or partial fix)
+
+        ${outputRules.code}
+      rewrite-test: |
+        <<<TASK_DESCRIPTION>>>
+        ${taskDescription}
+        <<<END_TASK_DESCRIPTION>>>
+
+        <<<ORIGINAL_CODE>>>
+        ${code}
+        <<<END_ORIGINAL_CODE>>>
+
+        <<<EXECUTION_RESULT>>>
+        ${executionResult}
+        <<<END_EXECUTION_RESULT>>>
+
+        <<<REVIEW_FEEDBACK>>>
+        ${feedback}
+        <<<END_REVIEW_FEEDBACK>>>
+
+        The tests in ORIGINAL_CODE were written to solve the task in TASK_DESCRIPTION.
+        They were executed and produced the result in EXECUTION_RESULT.
+        The reviewer provided feedback in REVIEW_FEEDBACK.
+
+        Rewrite the tests to fix all issues identified in the feedback and execution result.
+        The rewritten tests must:
+        - Fix all errors and test failures
+        - Still verify the original task requirements
+        - Be a complete, runnable test file (not a diff or partial fix)
+        - Use Python pytest and the requests library
+
+        ${outputRules.test}
     vector-search:
       extract-key-words: |
         <<<USER_QUESTION>>>
@@ -22,9 +1288,7 @@ prompts:
         Return ONLY:
         keyword1, keyword2, keyword3...
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
-        2) The answer MUST be a single string of comma-separated words.
+        ${outputRules.text}
 
       not-found: |
         <<<USER_QUESTION>>>
@@ -36,16 +1300,19 @@ prompts:
         Your answer must be extremely short (maximum 2 sentences).
         You MUST answer in the user's language.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
+        ${outputRules.text}
     document-chat:
       upload: |
+        <<<SWAGGER_INFO>>>
+        ${swaggerInfoSummary}
+        <<<END_SWAGGER_INFO>>>
+
         <<<SWAGGER_METHODS>>>
         ${swaggerMethodSummary}
         <<<END_SWAGGER_METHODS>>>
 
         TASK:
-        Analyze the provided OpenAPI document method summary and produce a very short overview (maximum 5 sentences).
+        Analyze the provided OpenAPI document and produce a very short overview (maximum 5 sentences).
         You MUST answer in Russian language.
 
         Your overview MUST answer:
@@ -55,8 +1322,7 @@ prompts:
         DO NOT list all available endpoints.
         Summarize the overall functionality in one sentence.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
+        ${outputRules.text}
 
       analyze: |
         <<<USER_QUESTION>>>
@@ -77,8 +1343,7 @@ prompts:
         Do not list all methods, only reference what is necessary to illustrate your answer.
         You MUST answer in the user's language.
 
-        STRICT OUTPUT RULES:
-        1) Do NOT include markdown, code fences, comments, or explanations.
+        ${outputRules.text}
       code: |
         <<<USER_QUESTION>>>
         ${userPrompt}
@@ -98,9 +1363,5 @@ prompts:
         REQUIREMENTS:
         - Language: Python 3.11
         - Style: PEP8, SOLID, modular
-        - Output: only the code wrapped between <<<CODE_START language=python>>> and <<<CODE_END>>>
-        
-        STRICT OUTPUT RULES:
-        1) Return ONLY the code in plain text. Do NOT include any prose, explanation, or markdown fences.
-        2) The response MUST start with: <<<CODE_START language=python>>> and end with: <<<CODE_END>>>.
-        3) Follow PEP8; use functions, docstrings and SOLID principles.
+
+        ${outputRules.code}

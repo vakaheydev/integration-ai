@@ -16,10 +16,12 @@ import {
   DialogContentText,
   DialogActions,
   Button,
+  Tooltip,
 } from '@mui/material';
-import { Description as DescriptionIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Description as DescriptionIcon, Delete as DeleteIcon, DeleteSweep as DeleteAllIcon } from '@mui/icons-material';
 import type { SwaggerDocument } from '../models/types';
 import { documentsApi } from '../api/documentsApi';
+import { DeleteAllDialog } from './DeleteAllDialog';
 
 interface DocumentListProps {
   documents: SwaggerDocument[];
@@ -40,6 +42,7 @@ export const DocumentList: React.FC<DocumentListProps> = ({
   const [documentToDelete, setDocumentToDelete] = useState<SwaggerDocument | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
 
   const handleDeleteClick = (doc: SwaggerDocument, event: React.MouseEvent) => {
     event.stopPropagation(); // Предотвращаем открытие документа при клике на кнопку удаления
@@ -105,8 +108,20 @@ export const DocumentList: React.FC<DocumentListProps> = ({
 
   return (
     <Paper elevation={2}>
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="h6">My Documents</Typography>
+        <Tooltip title="Delete all documents">
+          <span>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => setDeleteAllOpen(true)}
+              disabled={documents.length === 0}
+            >
+              <DeleteAllIcon />
+            </IconButton>
+          </span>
+        </Tooltip>
       </Box>
       <List>
         {documents.map((doc) => (
@@ -137,18 +152,11 @@ export const DocumentList: React.FC<DocumentListProps> = ({
         ))}
       </List>
 
-      {/* Диалог подтверждения удаления */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={handleDeleteCancel}
-        aria-labelledby="delete-dialog-title"
-        aria-describedby="delete-dialog-description"
-      >
-        <DialogTitle id="delete-dialog-title">
-          Delete document?
-        </DialogTitle>
+      {/* Диалог подтверждения удаления одного документа */}
+      <Dialog open={deleteDialogOpen} onClose={handleDeleteCancel}>
+        <DialogTitle>Delete document?</DialogTitle>
         <DialogContent>
-          <DialogContentText id="delete-dialog-description">
+          <DialogContentText>
             Are you sure you want to delete the document{' '}
             <strong>
               {documentToDelete?.name || documentToDelete?.summary || `with ID ${documentToDelete?.id}`}
@@ -177,7 +185,17 @@ export const DocumentList: React.FC<DocumentListProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Диалог удаления всех документов */}
+      <DeleteAllDialog
+        open={deleteAllOpen}
+        onClose={() => setDeleteAllOpen(false)}
+        onConfirm={async () => {
+          await documentsApi.deleteAllDocuments();
+          if (onDocumentDeleted) onDocumentDeleted();
+        }}
+        itemName="documents"
+      />
     </Paper>
   );
 };
-

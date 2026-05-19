@@ -34,6 +34,10 @@
         <hibernate.validator.version>8.0.1.Final</hibernate.validator.version>
         <springdoc.version>2.7.0</springdoc.version>
         <spring.security.version>6.5.0</spring.security.version>
+        <langgraph4j.version>1.8.7</langgraph4j.version>
+        <caffeine.version>3.2.0</caffeine.version>
+        <docker-java.version>3.4.1</docker-java.version>
+        <httpclient5.version>5.4.1</httpclient5.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
@@ -42,6 +46,14 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>org.bsc.langgraph4j</groupId>
+                <artifactId>langgraph4j-bom</artifactId>
+                <version>${langgraph4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-test</artifactId>
@@ -148,6 +160,12 @@
 
             <dependency>
                 <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-starter-cache</artifactId>
+                <version>${spring.boot.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-webflux</artifactId>
                 <version>${spring.boot.version}</version>
             </dependency>
@@ -176,6 +194,32 @@
                 <artifactId>jjwt-jackson</artifactId>
                 <version>${jjwt.version}</version>
                 <scope>runtime</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.ben-manes.caffeine</groupId>
+                <artifactId>caffeine</artifactId>
+                <version>${caffeine.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java-core</artifactId>
+                <version>${docker-java.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.docker-java</groupId>
+                <artifactId>docker-java-transport-httpclient5</artifactId>
+                <version>${docker-java.version}</version>
+            </dependency>
+
+            <!-- Принудительно поднимаем версию httpclient5 — docker-java тянет 5.0.3,
+                 а Spring Boot 3.5.x требует 5.4.x (TlsSocketStrategy) -->
+            <dependency>
+                <groupId>org.apache.httpcomponents.client5</groupId>
+                <artifactId>httpclient5</artifactId>
+                <version>${httpclient5.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

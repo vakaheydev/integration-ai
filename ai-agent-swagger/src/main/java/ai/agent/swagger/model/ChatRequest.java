@@ -15,5 +15,8 @@ public class ChatRequest {
 
     @Pattern(regexp = "^(analytic|programmer)$", message = "Role must be either 'analytic' or 'programmer'")
     private String role = "analytic";
+
+    /** Идентификатор модели ИИ (null = дефолтная из конфига) */
+    private String modelName;
 }
 

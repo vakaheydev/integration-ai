@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { Container, Box, Typography, Divider, Button, AppBar, Toolbar, IconButton, Menu, MenuItem, TextField, Alert, CircularProgress } from '@mui/material';
+import { Container, Box, Typography, Divider, AppBar, Toolbar, IconButton, Menu, MenuItem, TextField, Alert, CircularProgress, Tooltip } from '@mui/material';
 import { Refresh as RefreshIcon, AccountCircle, Logout, Search as SearchIcon } from '@mui/icons-material';
 import { UploadDocument } from '../components/UploadDocument';
 import { DocumentList } from '../components/DocumentList';
+import { TaskList } from '../components/TaskList';
 import { ChatInterface } from './ChatInterface';
 import { documentsApi } from '../api/documentsApi';
 import { useAuth } from '../context/AuthContext';
@@ -197,20 +198,13 @@ export const MainPage: React.FC = () => {
 
       <Box sx={{ display: 'grid', gap: 3, gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' } }}>
         <Box>
-          <UploadDocument onUploadSuccess={handleUploadSuccess} />
-        </Box>
-
-        <Box>
           <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Typography variant="h6">Documents</Typography>
-            <Button
-              startIcon={<RefreshIcon />}
-              onClick={loadDocuments}
-              disabled={loading}
-              size="small"
-            >
-              Refresh
-            </Button>
+            <Tooltip title="Refresh">
+              <IconButton onClick={loadDocuments} disabled={loading} size="small">
+                <RefreshIcon />
+              </IconButton>
+            </Tooltip>
           </Box>
           <DocumentList
             documents={documents}
@@ -219,6 +213,13 @@ export const MainPage: React.FC = () => {
             onSelectDocument={handleSelectDocument}
             onDocumentDeleted={loadDocuments}
           />
+          <Box sx={{ mt: 2 }}>
+            <UploadDocument onUploadSuccess={handleUploadSuccess} />
+          </Box>
+        </Box>
+
+        <Box>
+          <TaskList documents={documents} />
         </Box>
       </Box>
       </Container>

@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface SwaggerDocumentRepository extends MongoRepository<SwaggerDocument, String> {
     List<SwaggerDocument> findByUserId(String userId);
+    void deleteByUserId(String userId);
 }

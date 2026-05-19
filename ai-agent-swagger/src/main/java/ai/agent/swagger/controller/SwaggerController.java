@@ -2,6 +2,7 @@ package ai.agent.swagger.controller;
 
 import ai.agent.swagger.model.SwaggerDocument;
 import ai.agent.swagger.model.SwaggerSearchResult;
+import ai.agent.swagger.security.SecurityUtils;
 import ai.agent.swagger.service.SwaggerService;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
@@ -47,17 +48,6 @@ public class SwaggerController {
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(404)
                     .body(Map.of("status", "404", "error", "There is no document with ID" + documentId));
-        }
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/search")
-    public ResponseEntity<SwaggerSearchResult> query(@RequestParam("query") String query) {
-        try {
-            SwaggerSearchResult result = swaggerService.search(query);
-            return ResponseEntity.ok(result);
-        } catch (NoSuchElementException e) {
-            return ResponseEntity.notFound().build();
         }
     }
 
