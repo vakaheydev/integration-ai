@@ -21,7 +21,10 @@ public class SwaggerDocument {
     @NotBlank(message = "Name is required")
     @Size(min = 3, max = 50, message = "Name must be between 3 and 50 characters")
     private String name;
+    @Size(max = 10_000, message = "Document summary can't be more than 10.000 characters")
     private String documentSummary;
+    @Size(max = 30_000, message = "Method summary can't be more than 30.000 characters")
     private String methodSummary;
+    @Size(max = 5_000_000, message = "Content can't be more than 5.000.000 characters")
     private String content;
 }

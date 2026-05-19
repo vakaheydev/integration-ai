@@ -4,7 +4,8 @@
       "Bash(mvn compile:*)",
       "Read(//mnt/c/Users/MaxxPC/Documents/диплом/src/**)",
       "Bash(./mvnw compile:*)",
-      "Bash(ls mvnw* pom.xml)"
+      "Bash(ls mvnw* pom.xml)",
+      "Bash(xargs grep:*)"
     ]
   }
 }
